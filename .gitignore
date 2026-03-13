@@ -1,0 +1,21 @@
+.venv/
+__pycache__/
+*.pyc
+
+# Local environment/config
+.env
+.env.*
+
+# IDE/system
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Large local data and generated outputs
+data/
+uploads/
+outputs/
+react_preview/
+
+# Local zip bundles
+*.zip
