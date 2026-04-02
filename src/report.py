@@ -1,3 +1,5 @@
+﻿"""Report writers for DOCX and plain-text exports."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -16,6 +18,7 @@ def _candidate_label(candidate_id: str) -> str:
 
 
 def write_report_docx(report_path: Path, mode: str, top_k: int, rows: list[dict]) -> None:
+    """Write the ranked results to a formatted DOCX report."""
     doc = DocxDocument()
     doc.add_heading("Candidate Matching Report", level=1)
     doc.add_paragraph(f"Mode: {mode}")
@@ -42,6 +45,7 @@ def write_report_docx(report_path: Path, mode: str, top_k: int, rows: list[dict]
 
 
 def write_report_txt(report_path: Path, mode: str, top_k: int, rows: Iterable[dict]) -> None:
+    """Write the ranked results to a plain-text report."""
     lines = [f"Candidate Matching Report", f"Mode: {mode}", f"Top-K per job: {top_k}", ""]
     by_job: dict[str, list[dict]] = {}
     for row in rows:
@@ -60,3 +64,5 @@ def write_report_txt(report_path: Path, mode: str, top_k: int, rows: Iterable[di
 
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+
+

@@ -1,3 +1,5 @@
+﻿"""Thin wrapper around SentenceTransformer embedding generation."""
+
 from __future__ import annotations
 
 import os
@@ -8,6 +10,7 @@ from .preprocess import clean_text
 
 
 class Embedder:
+    """Load the embedding model and expose normalized batch encoding."""
     def __init__(self, model_name: str, allow_download: bool = False):
         # Disable telemetry noise and keep startup deterministic.
         os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
@@ -37,3 +40,5 @@ class Embedder:
             show_progress_bar=False,
             normalize_embeddings=True,
         )
+
+

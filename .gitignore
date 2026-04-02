@@ -19,3 +19,5 @@ react_preview/
 
 # Local zip bundles
 *.zip
+
+.venv311/

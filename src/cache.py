@@ -1,3 +1,5 @@
+﻿"""Persistent embedding cache used to speed up repeat runs."""
+
 from __future__ import annotations
 
 import hashlib
@@ -18,12 +20,15 @@ class EmbeddingCache:
         self._misses = 0
 
     def _path_for_hash(self, hash_key: str) -> Path:
+        """Map a text hash to its cached `.npy` embedding path."""
         return self.cache_dir / f"{hash_key}.npy"
 
     def get_hash(self, text: str) -> str:
+        """Hash normalized text so identical content shares cache entries."""
         return hashlib.sha256(clean_text(text).encode("utf-8")).hexdigest()
 
     def get(self, text: str) -> np.ndarray | None:
+        """Return a cached embedding if it exists on disk."""
         key = self.get_hash(text)
         path = self._path_for_hash(key)
         if not path.exists():
@@ -33,11 +38,13 @@ class EmbeddingCache:
         return np.load(path, allow_pickle=False)
 
     def set(self, text: str, embedding: np.ndarray) -> None:
+        """Persist one embedding to disk."""
         key = self.get_hash(text)
         path = self._path_for_hash(key)
         np.save(path, np.asarray(embedding, dtype=np.float32))
 
     def encode_batch(self, texts: list[str], embedder) -> np.ndarray:
+        """Encode a batch by mixing cache hits with freshly generated embeddings."""
         if not texts:
             return np.zeros((0, 0), dtype=np.float32)
 
@@ -63,6 +70,7 @@ class EmbeddingCache:
         return np.vstack([np.asarray(item, dtype=np.float32) for item in results if item is not None])
 
     def clear(self) -> int:
+        """Delete cached embedding files and reset runtime counters."""
         removed = 0
         for path in self.cache_dir.glob("*.npy"):
             path.unlink(missing_ok=True)
@@ -72,6 +80,7 @@ class EmbeddingCache:
         return removed
 
     def stats(self) -> dict[str, float | int]:
+        """Return runtime cache hit/miss statistics."""
         total = self._hits + self._misses
         hit_rate = (self._hits / total) if total else 0.0
         return {
@@ -80,3 +89,5 @@ class EmbeddingCache:
             "requests": total,
             "hit_rate": hit_rate,
         }
+
+

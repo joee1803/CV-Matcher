@@ -1,4 +1,6 @@
-﻿from __future__ import annotations
+﻿"""Optional pre-ranking filters for candidate documents."""
+
+from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
@@ -11,6 +13,7 @@ _SALARY_PATTERNS = (
 
 
 def _parse_salary_value(raw: str) -> float | None:
+    """Parse salary values like `45000` or `45k`."""
     value = raw.strip().lower().replace(",", "")
     if not value:
         return None
@@ -26,6 +29,7 @@ def _parse_salary_value(raw: str) -> float | None:
 
 
 def _extract_salary(text: str) -> float | None:
+    """Extract the first salary-like value found in candidate text."""
     for pattern in _SALARY_PATTERNS:
         match = pattern.search(text)
         if not match:
@@ -38,6 +42,7 @@ def _extract_salary(text: str) -> float | None:
 
 @dataclass
 class CandidateFilter:
+    """Apply optional skills, location, and salary filters before ranking."""
     required_skills: list[str] = field(default_factory=list)
     location: str | None = None
     salary_min: float | None = None
@@ -87,6 +92,7 @@ class CandidateFilter:
         return True, False
 
     def apply(self, candidates: list[dict]) -> tuple[list[dict], dict]:
+        """Filter candidates and return both the reduced set and filter stats."""
         if not self.has_active_filters:
             return candidates, {"total_candidates": len(candidates), "filtered_out": 0, "remaining": len(candidates)}
 
@@ -129,3 +135,5 @@ class CandidateFilter:
             },
         }
         return filtered, stats
+
+

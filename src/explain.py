@@ -1,3 +1,5 @@
+﻿"""Lightweight rule-based feedback generation for ranked matches."""
+
 from __future__ import annotations
 
 import re
@@ -40,13 +42,15 @@ _STOPWORDS = {
 }
 
 
-# Normalize potential section headings from raw CV lines.
+
 def _normalize_heading(line: str) -> str:
+    """Normalize a possible heading so loose alias matching is reliable."""
     return re.sub(r"[^a-z0-9 ]", "", line.lower()).strip()
 
 
-# Extract lightweight keyword tokens for overlap scoring.
+
 def _keywords(text: str) -> list[str]:
+    """Extract basic content terms while dropping common stopwords."""
     words = re.findall(r"[a-zA-Z][a-zA-Z0-9\+\#\.-]{2,}", text.lower())
     return [w for w in words if w not in _STOPWORDS]
 
@@ -54,8 +58,9 @@ def _keywords(text: str) -> list[str]:
 class MatchExplainer:
     """Lightweight explainability helpers for candidate-job similarity matches."""
 
-    # Split CV content into semantic sections using heading heuristics.
+
     def extract_sections(self, text: str) -> dict[str, str]:
+        """Split CV text into rough semantic sections using heading heuristics."""
         sections: dict[str, list[str]] = {"general": []}
         current = "general"
         for raw_line in text.splitlines():
@@ -75,8 +80,9 @@ class MatchExplainer:
             sections.setdefault(current, []).append(line)
         return {name: "\n".join(lines).strip() for name, lines in sections.items() if lines}
 
-    # Score section-to-job overlap and keep top matching terms per section.
+
     def find_matching_phrases(self, cv_sections: dict[str, str], job_text: str) -> list[dict]:
+        """Score section overlap against the job text and keep key shared terms."""
         job_terms = Counter(_keywords(job_text))
         matches: list[dict] = []
         for section_name, section_text in cv_sections.items():
@@ -100,13 +106,14 @@ class MatchExplainer:
         matches.sort(key=lambda item: item["score"], reverse=True)
         return matches
 
-    # Build human-readable summary and targeted CV improvement guidance.
+
     def generate_explanation(
         self,
         matching_phrases: list[dict],
         similarity_score: float,
         missing_terms: list[str] | None = None,
     ) -> str:
+        """Build the final user-facing explanation string."""
         if not matching_phrases:
             missing_text = ""
             if missing_terms:
@@ -155,8 +162,9 @@ class MatchExplainer:
             f"{improvement_text}"
         )
 
-    # Full explainability payload consumed by CSV output and UI feedback panels.
+
     def explain_match(self, cv_text: str, job_text: str, similarity_score: float) -> dict:
+        """Return the explanation payload used by the CSV export and UI."""
         sections = self.extract_sections(cv_text)
         matching_phrases = self.find_matching_phrases(sections, job_text)
         cv_terms = Counter(_keywords(cv_text))
@@ -170,3 +178,5 @@ class MatchExplainer:
             "missing_terms": missing_terms,
             "explanation": explanation,
         }
+
+

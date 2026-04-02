@@ -1,3 +1,5 @@
+﻿"""Document loading, caching, and dataset sampling helpers."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -31,6 +33,7 @@ class CandidateDoc:
 
 
 def ensure_dir(path: Path) -> None:
+    """Create a directory tree if it does not already exist."""
     path.mkdir(parents=True, exist_ok=True)
 
 
@@ -54,6 +57,7 @@ def read_pdf(path: Path) -> str:
 
 
 def read_document(path: Path) -> str:
+    """Dispatch to the correct reader for the supplied file type."""
     ext = path.suffix.lower()
     if ext == ".txt":
         return read_txt(path)
@@ -79,6 +83,7 @@ def _cached_supported_files(folder_str: str) -> tuple[str, ...]:
 
 
 def list_supported_files(folder: Path) -> list[Path]:
+    """Return cached supported files for a folder."""
     return [Path(p) for p in _cached_supported_files(str(folder.resolve()))]
 
 
@@ -89,11 +94,13 @@ def _read_document_cached(path_str: str, mtime_ns: int, size: int) -> str:
 
 
 def read_document_cached(path: Path) -> str:
+    """Read a document with a cache key that invalidates on file changes."""
     stat = path.stat()
     return _read_document_cached(str(path.resolve()), int(stat.st_mtime_ns), int(stat.st_size))
 
 
 def _sample_paths(paths: list[Path], max_items: int | None, seed: int) -> list[Path]:
+    """Sample a deterministic slice of files when a cap is active."""
     if max_items is None or max_items <= 0 or len(paths) <= max_items:
         return paths
     rng = random.Random(seed)
@@ -102,6 +109,7 @@ def _sample_paths(paths: list[Path], max_items: int | None, seed: int) -> list[P
 
 
 def count_dataset_items(folder: Path, pattern: str, unique_group: int | None = None) -> int:
+    """Count matching files without loading their contents."""
     if not folder.exists():
         return 0
     rx = re.compile(pattern, flags=re.IGNORECASE)
@@ -126,6 +134,7 @@ def count_dataset_items(folder: Path, pattern: str, unique_group: int | None = N
 
 
 def load_jobs(folder: Path, max_items: int | None = None, seed: int = 42) -> list[Document]:
+    """Load job descriptions from disk, optionally sampling a smaller set."""
     job_paths = [p for p in list_supported_files(folder) if _JOB_RE.match(p.stem)]
     sampled_paths = _sample_paths(job_paths, max_items=max_items, seed=seed)
     docs: list[Document] = []
@@ -137,6 +146,7 @@ def load_jobs(folder: Path, max_items: int | None = None, seed: int = 42) -> lis
 
 
 def load_candidate_docs(folder: Path, max_items: int | None = None, seed: int = 42) -> list[CandidateDoc]:
+    """Load candidate files, keeping CV/cover pairs grouped by candidate id."""
     paths = list_supported_files(folder)
     candidates_to_keep: set[str] | None = None
     if max_items is not None and max_items > 0:
@@ -168,3 +178,5 @@ def load_candidate_docs(folder: Path, max_items: int | None = None, seed: int = 
         if text:
             docs.append(CandidateDoc(candidate_id=candidate_id, kind=kind, text=text, path=p))
     return docs
+
+

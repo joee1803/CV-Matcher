@@ -1,3 +1,5 @@
+﻿"""Optional FAISS/Annoy indexing helpers for faster candidate lookup."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -18,12 +20,6 @@ except Exception:
 def _save_embeddings(path: Path, embeddings: np.ndarray) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     np.save(path, embeddings.astype(np.float32))
-
-
-def _load_embeddings(path: Path) -> np.ndarray | None:
-    if not path.exists():
-        return None
-    return np.load(path)
 
 
 # Build or load a nearest-neighbor index (FAISS preferred, Annoy fallback).
@@ -61,24 +57,25 @@ def build_or_load_index(embeddings: np.ndarray, outputs_dir: Path, prefer_faiss:
             aidx.save(str(annoy_path))
         return "annoy", aidx, embeddings
 
-    # Neither available — return None so caller can fallback
+    # Neither backend is available, so the caller falls back to direct cosine ranking.
     return None, None, embeddings
 
 
 # Query the selected index backend and return indices with similarities.
 def query_index(index_type: str, index_obj, queries: np.ndarray, top_k: int, embeddings: np.ndarray):
+    """Query the chosen ANN backend and return ids plus similarity scores."""
     queries = np.asarray(queries, dtype=np.float32)
     if index_type == "faiss":
         sims, idxs = index_obj.search(queries, top_k)
         return idxs, sims
     if index_type == "annoy":
-        # Annoy returns indices and distances (angular). We'll compute exact cosine similarities
+        # Annoy returns angular distances, so compute exact cosine scores afterwards.
         all_idxs = []
         all_sims = []
-        # ensure embeddings are float32 numpy
+
         cand_emb = np.asarray(embeddings, dtype=np.float32)
         for q in queries:
-            idxs, dists = index_obj.get_nns_by_vector(q.tolist(), top_k, include_distances=True)
+            idxs, _ = index_obj.get_nns_by_vector(q.tolist(), top_k, include_distances=True)
             if len(idxs) == 0:
                 all_idxs.append(np.array([], dtype=np.int64))
                 all_sims.append(np.array([], dtype=np.float32))
@@ -89,7 +86,7 @@ def query_index(index_type: str, index_obj, queries: np.ndarray, top_k: int, emb
             sims = (q @ cand_emb[idxs_arr].T).astype(np.float32)
             all_idxs.append(idxs_arr)
             all_sims.append(sims)
-        # convert lists to arrays padded to top_k
+        # Pack variable-length results into rectangular arrays for downstream code.
         max_k = max((len(a) for a in all_idxs), default=0)
         idxs_out = np.full((len(queries), max_k), -1, dtype=np.int64)
         sims_out = np.zeros((len(queries), max_k), dtype=np.float32)
@@ -101,3 +98,5 @@ def query_index(index_type: str, index_obj, queries: np.ndarray, top_k: int, emb
         return idxs_out, sims_out
 
     raise RuntimeError(f"Unknown index type: {index_type}")
+
+

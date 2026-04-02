@@ -1,4 +1,6 @@
-﻿from __future__ import annotations
+﻿"""End-to-end matcher pipeline shared by the CLI and Streamlit app."""
+
+from __future__ import annotations
 
 import argparse
 import json
@@ -6,7 +8,7 @@ import re
 import subprocess
 import sys
 from time import perf_counter
-from typing import Any
+from typing import Any, Callable
 
 import pandas as pd
 
@@ -22,6 +24,7 @@ from .report import write_report_docx, write_report_txt
 
 # Merge CV/cover files into one record per candidate for embedding + ranking.
 def combine_candidate_docs(docs: list[CandidateDoc], doc_mode: str = "cv_only") -> list[dict[str, str]]:
+    """Merge CV and cover-letter files into one embedding record per candidate."""
     grouped: dict[str, dict[str, str]] = {}
     for d in docs:
         grouped.setdefault(d.candidate_id, {})
@@ -51,6 +54,7 @@ def combine_candidate_docs(docs: list[CandidateDoc], doc_mode: str = "cv_only") 
 
 # Prefer explicit title from job text; otherwise fallback to job id.
 def _extract_job_title(text: str, doc_id: str) -> str:
+    """Prefer an explicit job title header and fall back to the file id."""
     first_line = (text.splitlines()[0].strip() if text else "")
     m = re.match(r"^JOB TITLE:\s*(.+)$", first_line, flags=re.IGNORECASE)
     if m:
@@ -62,6 +66,7 @@ def _extract_job_title(text: str, doc_id: str) -> str:
 
 # CLI contract for dataset/upload matching.
 def parse_args() -> argparse.Namespace:
+    """Parse CLI arguments for the dataset matcher."""
     parser = argparse.ArgumentParser(description="Candidate/job semantic matching")
     parser.add_argument("--mode", default="dataset", choices=["dataset"])
     parser.add_argument("--candidate-doc-mode", default="cv_only", choices=["cv_only", "cv_and_cover"])
@@ -101,6 +106,7 @@ def refresh_dataset_from_online(
     seed: int,
     force: bool,
 ) -> dict[str, str | int]:
+    """Refresh the local dataset by invoking the dataset preparation module."""
     cmd = [
         sys.executable,
         "-m",
@@ -154,14 +160,19 @@ def run_matching(
     max_jobs: int | None = None,
     max_candidates: int | None = None,
     sample_seed: int = 42,
+    progress_callback: Callable[[int, str], None] | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Run loading, filtering, embedding, ranking, and explanation in one pipeline."""
     if mode != "dataset":
         raise RuntimeError("Upload mode has been removed. Use --mode dataset.")
 
     cfg = Config()
     ensure_dir(cfg.outputs_dir)
 
-    # 1) Load and optionally refresh datasets.
+    if progress_callback:
+        progress_callback(5, "Preparing dataset and runtime")
+
+    # Load and optionally refresh the on-disk dataset.
     t0 = perf_counter()
     refresh_info: dict[str, str | int] | None = None
     if jobs_override is None or candidates_override is None:
@@ -180,13 +191,15 @@ def run_matching(
         jobs = jobs_override
         candidates = candidates_override
     t_load = perf_counter() - t0
+    if progress_callback:
+        progress_callback(24, "Loading complete")
 
     if not jobs:
         raise RuntimeError("No supported job files found.")
     if not candidates:
         raise RuntimeError("No candidate CVs found. Expected cand_XXXX_cv.*")
 
-    # 2) Apply candidate filters before embedding to reduce cost.
+    # Apply any candidate filters before embedding to reduce cost.
     filter_obj = CandidateFilter()
     if required_skills:
         filter_obj.add_skill_filter(required_skills)
@@ -198,10 +211,12 @@ def run_matching(
     t1 = perf_counter()
     candidates, filter_stats = filter_obj.apply(candidates)
     t_filter = perf_counter() - t1
+    if progress_callback:
+        progress_callback(36, "Candidate filtering complete")
     if not candidates:
         raise RuntimeError("All candidates were filtered out. Relax filter constraints and try again.")
 
-    # 3) Embed jobs/candidates with optional persistent cache.
+    # Encode jobs and candidates, reusing cached embeddings when available.
     t2 = perf_counter()
     embedder = Embedder(cfg.model_name, allow_download=allow_model_download)
     cache = EmbeddingCache(cfg.cache_dir)
@@ -214,8 +229,10 @@ def run_matching(
         job_emb = embedder.encode([j.text for j in jobs], batch_size=64)
         cand_emb = embedder.encode([c["text"] for c in candidates], batch_size=64)
     t_embed = perf_counter() - t2
+    if progress_callback:
+        progress_callback(64, "Embedding complete")
 
-    # 4) Rank candidates for each job (index-backed or direct cosine).
+    # Rank candidates for each job, using an ANN index only if enabled.
     t3 = perf_counter()
     rows: list[dict[str, Any]] = []
     cand_ids = [c["candidate_id"] for c in candidates]
@@ -265,8 +282,10 @@ def run_matching(
                         }
                     )
     t_match = perf_counter() - t3
+    if progress_callback:
+        progress_callback(82, "Ranking complete")
 
-    # 5) Generate explanations (full or top-N jobs in fast mode).
+    # Generate explanations after ranking so the UI/export stays readable.
     t4 = perf_counter()
     explained_rows = 0
     if output_explanations:
@@ -296,10 +315,12 @@ def run_matching(
             row["explanation"] = explained.get("explanation", "")
             explained_rows += 1
     t_explain = perf_counter() - t4
+    if progress_callback:
+        progress_callback(94, "Explanation pass complete")
 
     df = pd.DataFrame(rows, columns=["job_id", "job_title", "rank", "candidate_id", "similarity", "explanation"])
 
-    # 6) Persist outputs and runtime metadata.
+    # Persist outputs and return runtime metadata for the UI and CLI.
     if write_outputs:
         df.to_csv(cfg.rankings_csv, index=False)
         write_report_docx(cfg.report_docx, mode, top_k, rows)
@@ -307,6 +328,8 @@ def run_matching(
             write_report_txt(cfg.report_txt, mode, top_k, rows)
         if filter_obj.has_active_filters:
             cfg.filters_json.write_text(json.dumps(filter_stats, indent=2), encoding="utf-8")
+    if progress_callback:
+        progress_callback(100, "Run outputs ready")
 
     metrics: dict[str, Any] = {
         "jobs_loaded": len(jobs),
@@ -335,6 +358,7 @@ def run_matching(
 
 # CLI entrypoint wrapper around run_matching.
 def main() -> None:
+    """CLI wrapper around the shared matcher pipeline."""
     args = parse_args()
     _, metrics = run_matching(
         mode=args.mode,
@@ -389,3 +413,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+

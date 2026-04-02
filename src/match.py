@@ -1,3 +1,5 @@
+﻿"""Vector similarity and ranking helpers."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -12,7 +14,8 @@ def cosine_similarity_matrix(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 
 
 def rank_candidates(sim_scores: np.ndarray, candidate_ids: list[str], top_k: int) -> list[tuple[str, float]]:
-    # Return the top-k candidate ids and their sim scores.
+    """Return the best candidate ids and scores for one job vector."""
+    
     k = min(top_k, len(candidate_ids))
     if k == 0:
         return []
@@ -25,4 +28,6 @@ def rank_candidates(sim_scores: np.ndarray, candidate_ids: list[str], top_k: int
     else:
         idx = np.argsort(-sim_scores)[:k]
         return [(candidate_ids[i], float(sim_scores[i])) for i in idx]
+
+
 
