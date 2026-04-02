@@ -16,10 +16,32 @@ streamlit run app.py
 3. Set:
 - Main file path: `app.py`
 - Python version: `3.11`
-4. Ensure repo includes required data folders/files:
-- `data/jobs`
-- `data/candidates`
+4. Configure one dataset source:
+- local `data/jobs` and `data/candidates`
+- or a Hugging Face dataset snapshot
+- or the tracked fallback `demo_data`
 5. Deploy.
+
+### Hugging Face dataset settings
+
+Add these environment variables in Streamlit Community Cloud if you want a larger deployment dataset from Hugging Face:
+
+- `HF_DATASET_REPO_ID`: for example `your-name/cv-matcher-data`
+- `HF_DATASET_REPO_TYPE`: usually `dataset`
+- `HF_DATASET_REVISION`: optional branch, tag, or commit
+- `HF_DATASET_SUBDIR`: optional subfolder that contains `jobs/` and `candidates/`
+- `HF_TOKEN`: optional, only needed for private repos
+
+Expected Hugging Face layout:
+
+```text
+jobs/
+  jd_0001.txt
+  ...
+candidates/
+  cand_0001_cv.txt
+  ...
+```
 
 ## 3) Render (alternative)
 
@@ -45,5 +67,7 @@ streamlit run app.py --server.port $PORT --server.address 0.0.0.0
 
 ## 5) Notes
 
-- This app is designed for local dataset files (`data/jobs`, `data/candidates`).
-- If hosting remotely, make sure those datasets are present in the deployment environment.
+- Dataset resolution order is:
+1. local `data/jobs` and `data/candidates`
+2. Hugging Face dataset snapshot
+3. tracked `demo_data`

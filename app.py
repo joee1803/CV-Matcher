@@ -11,7 +11,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
-from src.config import dataset_paths
+from src.config import dataset_paths, dataset_source
 from src.io import count_dataset_items, read_document_cached
 from src.run import run_matching
 
@@ -1246,8 +1246,12 @@ def main() -> None:
     _inject_styles(st.session_state["dark_mode"])
 
     dataset_max_candidates, dataset_max_jobs = _current_dataset_limits()
-    jobs_dir, _ = dataset_paths()
-    using_demo_dataset = "demo_data" in str(jobs_dir).replace("\\", "/")
+    current_dataset_source = dataset_source()
+    dataset_chip = {
+        "local": "Local dataset",
+        "huggingface": "Hugging Face dataset",
+        "demo": "Demo dataset",
+    }.get(current_dataset_source, "Dataset")
     st.markdown(
         f"""
         <div class='hero'>
@@ -1260,7 +1264,7 @@ def main() -> None:
                 <span class='chip'>Semantic ranking</span>
                 <span class='chip'>Explainable feedback</span>
                 <span class='chip'>Batch exploration</span>
-                <span class='chip'>{"Demo dataset" if using_demo_dataset else "Local dataset"}</span>
+                <span class='chip'>{dataset_chip}</span>
               </div>
             </div>
             <div class='hero-panel'>
@@ -1281,6 +1285,11 @@ def main() -> None:
         """,
         unsafe_allow_html=True,
     )
+
+    if current_dataset_source == "huggingface":
+        st.caption("Deployment dataset is loading from Hugging Face.")
+    elif current_dataset_source == "demo":
+        st.caption("Fallback demo dataset is active because no larger dataset source was found.")
 
     if "batch_seed" not in st.session_state:
         st.session_state["batch_seed"] = random.SystemRandom().randint(1, 999999)
