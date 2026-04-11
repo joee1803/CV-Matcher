@@ -67,7 +67,16 @@ def _huggingface_dataset_paths() -> tuple[Path, Path] | None:
 
 
 def dataset_paths() -> tuple[Path, Path]:
-    """Resolve dataset folders in priority order: local, Hugging Face, then demo."""
+    jobs_override = os.getenv("JOBS_DATA_DIR")
+    candidates_override = os.getenv("CANDIDATES_DATA_DIR")
+    if jobs_override and candidates_override:
+        return Path(jobs_override), Path(candidates_override)
+
+    data_root = os.getenv("DATA_ROOT")
+    if data_root:
+        root = Path(data_root)
+        return root / "jobs", root / "candidates"
+
     primary_jobs, primary_candidates = _local_dataset_paths()
     if primary_jobs.exists() and primary_candidates.exists():
         return primary_jobs, primary_candidates
@@ -84,7 +93,15 @@ def dataset_paths() -> tuple[Path, Path]:
 
 
 def dataset_source() -> str:
-    """Report which dataset source the app is currently using."""
+    jobs_override = os.getenv("JOBS_DATA_DIR")
+    candidates_override = os.getenv("CANDIDATES_DATA_DIR")
+    if jobs_override and candidates_override:
+        return "local"
+
+    data_root = os.getenv("DATA_ROOT")
+    if data_root:
+        return "local"
+
     jobs_dir, _ = dataset_paths()
     normalized = str(jobs_dir).replace("\\", "/").lower()
     if "/demo_data/" in f"/{normalized}/":

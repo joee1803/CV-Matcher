@@ -1,6 +1,4 @@
-﻿"""End-to-end matcher pipeline shared by the CLI and Streamlit app."""
-
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import argparse
 import json
@@ -24,7 +22,6 @@ from .report import write_report_docx, write_report_txt
 
 # Merge CV/cover files into one record per candidate for embedding + ranking.
 def combine_candidate_docs(docs: list[CandidateDoc], doc_mode: str = "cv_only") -> list[dict[str, str]]:
-    """Merge CV and cover-letter files into one embedding record per candidate."""
     grouped: dict[str, dict[str, str]] = {}
     for d in docs:
         grouped.setdefault(d.candidate_id, {})
@@ -54,7 +51,6 @@ def combine_candidate_docs(docs: list[CandidateDoc], doc_mode: str = "cv_only") 
 
 # Prefer explicit title from job text; otherwise fallback to job id.
 def _extract_job_title(text: str, doc_id: str) -> str:
-    """Prefer an explicit job title header and fall back to the file id."""
     first_line = (text.splitlines()[0].strip() if text else "")
     m = re.match(r"^JOB TITLE:\s*(.+)$", first_line, flags=re.IGNORECASE)
     if m:
@@ -66,7 +62,6 @@ def _extract_job_title(text: str, doc_id: str) -> str:
 
 # CLI contract for dataset/upload matching.
 def parse_args() -> argparse.Namespace:
-    """Parse CLI arguments for the dataset matcher."""
     parser = argparse.ArgumentParser(description="Candidate/job semantic matching")
     parser.add_argument("--mode", default="dataset", choices=["dataset"])
     parser.add_argument("--candidate-doc-mode", default="cv_only", choices=["cv_only", "cv_and_cover"])
@@ -106,7 +101,6 @@ def refresh_dataset_from_online(
     seed: int,
     force: bool,
 ) -> dict[str, str | int]:
-    """Refresh the local dataset by invoking the dataset preparation module."""
     cmd = [
         sys.executable,
         "-m",
@@ -162,7 +156,6 @@ def run_matching(
     sample_seed: int = 42,
     progress_callback: Callable[[int, str], None] | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
-    """Run loading, filtering, embedding, ranking, and explanation in one pipeline."""
     if mode != "dataset":
         raise RuntimeError("Upload mode has been removed. Use --mode dataset.")
 
@@ -172,7 +165,7 @@ def run_matching(
     if progress_callback:
         progress_callback(5, "Preparing dataset and runtime")
 
-    # Load and optionally refresh the on-disk dataset.
+    # 1) Load and optionally refresh datasets.
     t0 = perf_counter()
     refresh_info: dict[str, str | int] | None = None
     if jobs_override is None or candidates_override is None:
@@ -199,7 +192,7 @@ def run_matching(
     if not candidates:
         raise RuntimeError("No candidate CVs found. Expected cand_XXXX_cv.*")
 
-    # Apply any candidate filters before embedding to reduce cost.
+    # 2) Apply candidate filters before embedding to reduce cost.
     filter_obj = CandidateFilter()
     if required_skills:
         filter_obj.add_skill_filter(required_skills)
@@ -216,7 +209,7 @@ def run_matching(
     if not candidates:
         raise RuntimeError("All candidates were filtered out. Relax filter constraints and try again.")
 
-    # Encode jobs and candidates, reusing cached embeddings when available.
+    # 3) Embed jobs/candidates with optional persistent cache.
     t2 = perf_counter()
     embedder = Embedder(cfg.model_name, allow_download=allow_model_download)
     cache = EmbeddingCache(cfg.cache_dir)
@@ -232,7 +225,7 @@ def run_matching(
     if progress_callback:
         progress_callback(64, "Embedding complete")
 
-    # Rank candidates for each job, using an ANN index only if enabled.
+    # 4) Rank candidates for each job (index-backed or direct cosine).
     t3 = perf_counter()
     rows: list[dict[str, Any]] = []
     cand_ids = [c["candidate_id"] for c in candidates]
@@ -285,7 +278,7 @@ def run_matching(
     if progress_callback:
         progress_callback(82, "Ranking complete")
 
-    # Generate explanations after ranking so the UI/export stays readable.
+    # 5) Generate explanations (full or top-N jobs in fast mode).
     t4 = perf_counter()
     explained_rows = 0
     if output_explanations:
@@ -320,7 +313,7 @@ def run_matching(
 
     df = pd.DataFrame(rows, columns=["job_id", "job_title", "rank", "candidate_id", "similarity", "explanation"])
 
-    # Persist outputs and return runtime metadata for the UI and CLI.
+    # 6) Persist outputs and runtime metadata.
     if write_outputs:
         df.to_csv(cfg.rankings_csv, index=False)
         write_report_docx(cfg.report_docx, mode, top_k, rows)
@@ -358,7 +351,6 @@ def run_matching(
 
 # CLI entrypoint wrapper around run_matching.
 def main() -> None:
-    """CLI wrapper around the shared matcher pipeline."""
     args = parse_args()
     _, metrics = run_matching(
         mode=args.mode,
@@ -413,5 +405,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

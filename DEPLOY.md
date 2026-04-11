@@ -20,7 +20,15 @@ streamlit run app.py
 - local `data/jobs` and `data/candidates`
 - or a Hugging Face dataset snapshot
 - or the tracked fallback `demo_data`
-5. Deploy.
+- or provide the dataset path in app settings if the full dataset is stored outside the repo:
+- `DATA_ROOT=/absolute/path/to/dataset_root`
+  - expected structure under that folder:
+    - `jobs/`
+    - `candidates/`
+5. Or provide explicit folders instead:
+- `JOBS_DATA_DIR=/absolute/path/to/jobs`
+- `CANDIDATES_DATA_DIR=/absolute/path/to/candidates`
+6. Deploy.
 
 ### Hugging Face dataset settings
 
@@ -68,6 +76,9 @@ streamlit run app.py --server.port $PORT --server.address 0.0.0.0
 ## 5) Notes
 
 - Dataset resolution order is:
-1. local `data/jobs` and `data/candidates`
-2. Hugging Face dataset snapshot
-3. tracked `demo_data`
+  1. `JOBS_DATA_DIR` + `CANDIDATES_DATA_DIR`
+  2. `DATA_ROOT/jobs` + `DATA_ROOT/candidates`
+  3. repo-local `data/jobs` + `data/candidates`
+  4. Hugging Face dataset snapshot
+  5. repo-local `demo_data/jobs` + `demo_data/candidates`
+- If hosting remotely, the full dataset must exist in the deployment environment or be mounted from external storage.

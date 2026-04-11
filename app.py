@@ -1,6 +1,4 @@
-﻿"""Streamlit UI for the CV-to-job matcher."""
-
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import html
 import re
@@ -10,12 +8,17 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
+from streamlit.errors import StreamlitAPIException
 
 from src.config import dataset_paths, dataset_source
 from src.io import count_dataset_items, read_document_cached
 from src.run import run_matching
 
-# Cap the rendered table so the browser stays responsive on larger runs.
+try:
+    st.set_page_config(page_title="CN6000 Matcher", page_icon="📊", layout="wide")
+except StreamlitAPIException:
+    pass
+
 MAX_UI_ROWS = 5000
 DEFAULT_SUBSET_JOBS = 60
 BASE_SUBSET_SEED = 42
@@ -24,40 +27,9 @@ USE_EMBEDDING_CACHE = True
 GENERATE_EXPLANATIONS = True
 
 
-def _inject_styles(dark_mode: bool) -> None:
-    """Inject the shared theme, motion, and component overrides."""
+# UI theme + accessibility styles for Streamlit components.
+def _inject_styles(_dark_mode: bool) -> None:
     theme_vars = """
-        :root {
-          --bg: radial-gradient(circle at 10% 10%, #07111a 0%, #0c1726 34%, #150f1f 100%);
-          --bg-2: radial-gradient(circle at 12% 14%, rgba(8, 145, 178, 0.18), transparent 28%), radial-gradient(circle at 86% 16%, rgba(217, 119, 6, 0.14), transparent 24%);
-          --ink: #e5eef7;
-          --muted: #9fb3c8;
-          --accent: #22c1b8;
-          --accent-2: #ff8a00;
-          --card: rgba(11, 20, 31, 0.82);
-          --card-strong: rgba(9, 17, 27, 0.92);
-          --hero-surface: linear-gradient(135deg, rgba(9, 18, 29, 0.96) 0%, rgba(14, 25, 39, 0.88) 56%, rgba(31, 21, 30, 0.92) 100%);
-          --panel-surface: rgba(255,255,255,0.045);
-          --input-surface: rgba(255,255,255,0.06);
-          --chip-surface: rgba(255,255,255,0.065);
-          --border: rgba(148, 163, 184, 0.16);
-          --border-strong: rgba(148, 163, 184, 0.24);
-          --surface: rgba(255,255,255,0.04);
-          --header: rgba(8, 15, 25, 0.78);
-          --sidebar: rgba(6, 12, 21, 0.96);
-          --dataframe-text: #e5eef7;
-          --empty-border: rgba(159, 179, 200, 0.44);
-          --tab-muted: rgba(229, 238, 247, 0.78);
-          --tab-active: #f8fbff;
-          --panel-text: #f3f7fb;
-          --table-head: #070b10;
-          --table-cell: #05080d;
-          --table-border: rgba(110, 231, 183, 0.22);
-          --table-bar: #22c55e;
-          --table-bar-2: #4ade80;
-          --table-bar-bg: rgba(74, 222, 128, 0.10);
-        }
-        """ if dark_mode else """
         :root {
           --bg: radial-gradient(circle at 10% 10%, #f7fbff 0%, #edf7f3 42%, #fff7eb 100%);
           --bg-2: linear-gradient(135deg, rgba(14, 165, 164, 0.10), rgba(217, 119, 6, 0.08));
@@ -87,6 +59,36 @@ def _inject_styles(dark_mode: bool) -> None:
           --table-bar: #0ea5a4;
           --table-bar-2: #14b8a6;
           --table-bar-bg: rgba(14,165,164,0.10);
+        }
+        :root[data-theme="dark"] {
+          --bg: radial-gradient(circle at 10% 10%, #07111a 0%, #0c1726 34%, #150f1f 100%);
+          --bg-2: radial-gradient(circle at 12% 14%, rgba(8, 145, 178, 0.18), transparent 28%), radial-gradient(circle at 86% 16%, rgba(217, 119, 6, 0.14), transparent 24%);
+          --ink: #e5eef7;
+          --muted: #93a8bb;
+          --accent: #22c1b8;
+          --accent-2: #ff8a00;
+          --card: rgba(11, 20, 31, 0.82);
+          --card-strong: rgba(9, 17, 27, 0.92);
+          --hero-surface: linear-gradient(135deg, rgba(9, 18, 29, 0.96) 0%, rgba(14, 25, 39, 0.88) 56%, rgba(31, 21, 30, 0.92) 100%);
+          --panel-surface: rgba(255,255,255,0.045);
+          --input-surface: rgba(255,255,255,0.06);
+          --chip-surface: rgba(255,255,255,0.065);
+          --border: rgba(148, 163, 184, 0.16);
+          --border-strong: rgba(148, 163, 184, 0.24);
+          --surface: rgba(255,255,255,0.04);
+          --header: rgba(8, 15, 25, 0.78);
+          --sidebar: rgba(6, 12, 21, 0.96);
+          --dataframe-text: #e5eef7;
+          --empty-border: rgba(159, 179, 200, 0.44);
+          --tab-muted: rgba(229, 238, 247, 0.78);
+          --tab-active: #f8fbff;
+          --panel-text: #f3f7fb;
+          --table-head: #070b10;
+          --table-cell: #05080d;
+          --table-border: rgba(110, 231, 183, 0.22);
+          --table-bar: #22c55e;
+          --table-bar-2: #4ade80;
+          --table-bar-bg: rgba(74, 222, 128, 0.10);
         }
         """
     styles = """
@@ -263,12 +265,6 @@ def _inject_styles(dark_mode: bool) -> None:
           gap: 18px;
           align-items: end;
         }
-        .hero-title {
-          margin: 0;
-          font-size: 42px;
-          line-height: 0.98;
-          max-width: 10ch;
-        }
         .hero-kicker {
           color: var(--accent);
           font-size: 12px;
@@ -276,6 +272,12 @@ def _inject_styles(dark_mode: bool) -> None:
           letter-spacing: 0.8px;
           margin-bottom: 10px;
           font-weight: 700;
+        }
+        .hero-title {
+          margin: 0;
+          font-size: 42px;
+          line-height: 0.98;
+          max-width: 10ch;
         }
         .hero-copy {
           margin: 12px 0 0 0;
@@ -326,6 +328,7 @@ def _inject_styles(dark_mode: bool) -> None:
         .timing-row div:last-child, .timing-head div:last-child {
           border-left: 1px solid var(--border);
           text-align: right;
+          font-variant-numeric: tabular-nums;
         }
         .timing-row:last-child div {
           border-bottom: none;
@@ -334,95 +337,26 @@ def _inject_styles(dark_mode: bool) -> None:
           background: rgba(34, 193, 184, 0.06);
           font-weight: 700;
         }
-        .rank-table-wrap {
-          border: 1px solid var(--border-strong);
-          border-radius: 22px;
-          overflow: auto;
-          background: var(--card-strong);
-          box-shadow: 0 20px 48px rgba(15, 23, 42, 0.16);
-        }
-        .rank-table {
-          width: 100%;
-          border-collapse: collapse;
-          min-width: 820px;
-        }
-        .rank-table thead th {
-          text-align: left;
-          color: var(--muted);
-          font-size: 13px;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          padding: 14px 12px;
-          background: rgba(255,255,255,0.03);
-          border-bottom: 1px solid var(--border);
-        }
-        .rank-table tbody td {
-          padding: 14px 12px;
-          border-bottom: 1px solid var(--border);
-          color: var(--ink);
-          vertical-align: middle;
-        }
-        .rank-table tbody tr:hover {
-          background: rgba(255,255,255,0.025);
-        }
-        .rank-table tbody tr:last-child td {
-          border-bottom: none;
-        }
-        .rank-index {
-          color: var(--muted);
-          width: 44px;
-          text-align: right;
-        }
-        .rank-pill {
-          display: inline-block;
-          min-width: 36px;
-          padding: 4px 10px;
+        .theme-fab {
+          position: fixed;
+          right: 18px;
+          top: 76px;
+          z-index: 9999;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 14px;
           border-radius: 999px;
-          border: 1px solid var(--border-strong);
-          background: var(--panel-surface);
-          text-align: center;
-          font-weight: 700;
-        }
-        .sim-track {
-          width: 132px;
-          height: 8px;
-          background: rgba(255,255,255,0.08);
-          border-radius: 999px;
-          overflow: hidden;
-          border: 1px solid var(--border);
-          margin-bottom: 6px;
-        }
-        .sim-fill {
-          height: 100%;
-          background: linear-gradient(90deg, var(--accent), var(--accent-2));
-          box-shadow: 0 0 18px rgba(34, 193, 184, 0.35);
-          border-radius: 999px;
-        }
-        .sim-label {
-          font-size: 12px;
-          color: var(--muted);
-        }
-        .doc-shell {
           border: 1px solid var(--border-strong);
           background: var(--card-strong);
-          border-radius: 18px;
-          padding: 0;
-          overflow: hidden;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
-        }
-        .doc-text {
-          margin: 0;
-          padding: 18px 20px;
-          max-height: 360px;
-          overflow: auto;
-          white-space: pre-wrap;
-          word-break: break-word;
-          line-height: 1.65;
-          font-family: "Source Sans 3", "Segoe UI", sans-serif;
-          font-size: 17px;
           color: var(--ink);
-          background: transparent;
-          cursor: text;
+          box-shadow: 0 12px 30px rgba(15, 23, 42, 0.16);
+          backdrop-filter: blur(16px);
+          font: 600 14px "Source Sans 3", "Segoe UI", sans-serif;
+          cursor: pointer;
+        }
+        .theme-fab:hover {
+          transform: translateY(-1px);
         }
         .hero-stats {
           display: grid;
@@ -531,11 +465,6 @@ def _inject_styles(dark_mode: bool) -> None:
           border-radius: 12px;
           padding: 10px 12px;
           margin: 8px 0 10px 0;
-        }
-        .section-intro {
-          margin: 6px 0 14px 0;
-          color: var(--muted);
-          font-size: 15px;
         }
         .result-shell {
           background: var(--card);
@@ -701,13 +630,23 @@ def _inject_styles(dark_mode: bool) -> None:
     st.markdown(styles.replace("__THEME_VARS__", theme_vars), unsafe_allow_html=True)
 
 
+def _read_theme_from_query_params() -> bool:
+    theme_value = str(st.query_params.get("theme", "light")).strip().lower()
+    return theme_value == "dark"
+
+
+def _sync_theme_query_param(dark_mode: bool) -> None:
+    target_theme = "dark" if dark_mode else "light"
+    if st.query_params.get("theme") != target_theme:
+        st.query_params["theme"] = target_theme
+
+
 def _candidate_label(candidate_id: str) -> str:
     return re.sub(r"^upload_cand_(\d+)$", lambda m: f"Candidate {int(m.group(1))}", candidate_id)
 
 
 @st.cache_data(show_spinner=False)
 def _current_dataset_limits() -> tuple[int, int]:
-    """Count dataset files without loading their contents into memory."""
     jobs_dir, candidates_dir = dataset_paths()
     jobs_count = count_dataset_items(jobs_dir, r"^jd_\d+$")
     cv_count = count_dataset_items(candidates_dir, r"^(cand_\d+)_cv$", unique_group=1)
@@ -769,8 +708,14 @@ def _read_doc_text(path: Path | None) -> str:
         return ""
 
 
+def _snapshot_card(label: str, value: str) -> None:
+    st.markdown(
+        f"<div class='snapshot'><div class='snapshot-label'>{label}</div><div class='snapshot-value'>{value}</div></div>",
+        unsafe_allow_html=True,
+    )
+
+
 def _render_loading_state(progress_value: int, message: str) -> None:
-    """Show the branded loading card used during matcher execution."""
     st.markdown(
         f"""
         <div class='loading-card'>
@@ -788,8 +733,56 @@ def _render_loading_state(progress_value: int, message: str) -> None:
     )
 
 
+def _mount_theme_controller() -> None:
+    components.html(
+        """
+        <script>
+        (function () {
+          const key = "cn6000-theme";
+          const parentDoc = window.parent.document;
+          const root = parentDoc.documentElement;
+
+          function currentTheme() {
+            return root.getAttribute("data-theme") === "dark" ? "dark" : "light";
+          }
+
+          function applyTheme(theme) {
+            root.setAttribute("data-theme", theme);
+            try { window.parent.localStorage.setItem(key, theme); } catch (e) {}
+            const btn = parentDoc.getElementById("cn6000-theme-fab");
+            if (btn) {
+              btn.innerHTML = theme === "dark" ? "☀ Light mode" : "☾ Dark mode";
+            }
+          }
+
+          function savedTheme() {
+            try { return window.parent.localStorage.getItem(key) || "light"; } catch (e) { return "light"; }
+          }
+
+          function mount() {
+            let btn = parentDoc.getElementById("cn6000-theme-fab");
+            if (!btn) {
+              btn = parentDoc.createElement("button");
+              btn.id = "cn6000-theme-fab";
+              btn.className = "theme-fab";
+              btn.type = "button";
+              btn.onclick = function () {
+                applyTheme(currentTheme() === "dark" ? "light" : "dark");
+              };
+              parentDoc.body.appendChild(btn);
+            }
+            applyTheme(savedTheme());
+          }
+
+          mount();
+        })();
+        </script>
+        """,
+        height=0,
+    )
+
+
 def _build_export_df_with_explanations(df: pd.DataFrame) -> pd.DataFrame:
-    """Ensure exported rows always include a readable explanation string."""
     export_df = df.copy()
     if "explanation" not in export_df.columns:
         export_df["explanation"] = ""
@@ -818,108 +811,123 @@ def _build_export_df_with_explanations(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _render_rankings_dataframe(df: pd.DataFrame) -> None:
-    """Render a native light table and a styled sortable dark table."""
-    dark_mode = bool(st.session_state.get("dark_mode", False))
-    if dark_mode:
-        display_columns = [
-            ("__index__", "", "number"),
-            ("job_id", "Job ID", "text"),
-            ("job_title", "Job Title", "text"),
-            ("candidate_id", "Candidate", "text"),
-            ("candidate_rank", "Rank", "number"),
-            ("similarity_score", "Similarity", "number"),
+    """Render a sortable table that follows the active frontend theme."""
+    display_columns = [
+        ("__index__", "", "number"),
+        ("job_id", "Job ID", "text"),
+        ("job_title", "Job Title", "text"),
+        ("candidate_id", "Candidate", "text"),
+        ("candidate_rank", "Rank", "number"),
+        ("similarity_score", "Similarity", "number"),
+    ]
+    rows_html: list[str] = []
+    for index_value, row in df.iterrows():
+        cells = [
+            f"<td data-sort-value='{html.escape(str(index_value))}'>{html.escape(str(index_value))}</td>"
         ]
-        rows_html: list[str] = []
-        for index_value, row in df.iterrows():
-            cells = [
-                f"<td data-sort-value='{html.escape(str(index_value))}'>{html.escape(str(index_value))}</td>"
-            ]
-            for column_key, _, column_type in display_columns[1:]:
-                raw_value = row.get(column_key, "")
-                if column_key == "similarity_score":
-                    numeric_value = pd.to_numeric(pd.Series([raw_value]), errors="coerce").fillna(0.0).iloc[0]
-                    width_pct = max(0.0, min(100.0, float(numeric_value) * 100.0))
-                    cells.append(
-                        f'''
-                        <td class="sim-cell" data-sort-value="{float(numeric_value):.6f}">
-                          <div class="sim-wrap">
-                            <div class="sim-track"><div class="sim-bar" style="width:{width_pct:.1f}%"></div></div>
-                            <span class="sim-value">{float(numeric_value):.3f}</span>
-                          </div>
-                        </td>
-                        '''
-                    )
-                elif column_type == "number":
-                    numeric_value = pd.to_numeric(pd.Series([raw_value]), errors="coerce").fillna(0).iloc[0]
-                    cells.append(
-                        f"<td data-sort-value='{float(numeric_value):.6f}'>{int(numeric_value)}</td>"
-                    )
-                else:
-                    safe_value = html.escape(str(raw_value))
-                    cells.append(f"<td data-sort-value='{safe_value.lower()}'>{safe_value}</td>")
-            rows_html.append("<tr>" + "".join(cells) + "</tr>")
-        header_html = "".join(
-            f'''
-            <th data-col-index="{index}" data-sort-type="{sort_type}">
-              <button type="button" class="sort-btn">
-                <span>{html.escape(label)}</span>
-                <span class="sort-indicator">↕</span>
-              </button>
-            </th>
-            '''
-            for index, (_, label, sort_type) in enumerate(display_columns)
-        )
-        components.html(
+        for column_key, _, column_type in display_columns[1:]:
+            raw_value = row.get(column_key, "")
+            if column_key == "similarity_score":
+                numeric_value = pd.to_numeric(pd.Series([raw_value]), errors="coerce").fillna(0.0).iloc[0]
+                width_pct = max(0.0, min(100.0, float(numeric_value) * 100.0))
+                cells.append(
+                    f'''
+                    <td class="sim-cell" data-sort-value="{float(numeric_value):.6f}">
+                      <div class="sim-wrap">
+                        <div class="sim-track"><div class="sim-bar" style="width:{width_pct:.1f}%"></div></div>
+                        <span class="sim-value">{float(numeric_value):.3f}</span>
+                      </div>
+                    </td>
+                    '''
+                )
+            elif column_type == "number":
+                numeric_value = pd.to_numeric(pd.Series([raw_value]), errors="coerce").fillna(0).iloc[0]
+                cells.append(
+                    f"<td data-sort-value='{float(numeric_value):.6f}'>{int(numeric_value)}</td>"
+                )
+            else:
+                safe_value = html.escape(str(raw_value))
+                cells.append(f"<td data-sort-value='{safe_value.lower()}'>{safe_value}</td>")
+        rows_html.append("<tr>" + "".join(cells) + "</tr>")
+    header_html = "".join(
+        f'''
+        <th data-col-index="{index}" data-sort-type="{sort_type}">
+          <button type="button" class="sort-btn">
+            <span>{html.escape(label)}</span>
+            <span class="sort-indicator">↕</span>
+          </button>
+        </th>
+        '''
+        for index, (_, label, sort_type) in enumerate(display_columns)
+    )
+    components.html(
             f'''
             <style>
               :root {{
-                color-scheme: dark;
+                --frame-bg: #ffffff;
+                --frame-text: #0f172a;
+                --frame-muted: #475569;
+                --frame-border: #dbe7f3;
+                --frame-row-hover: #f7fafc;
+                --frame-track: rgba(14,165,164,0.10);
+                --frame-track-border: rgba(14,165,164,0.22);
+                --frame-bar: linear-gradient(90deg, #0ea5a4 0%, #14b8a6 100%);
+              }}
+              body[data-theme="dark"] {{
+                --frame-bg: #05080d;
+                --frame-text: #f8fbff;
+                --frame-muted: #cfead8;
+                --frame-border: rgba(74, 222, 128, 0.24);
+                --frame-row-hover: #08110f;
+                --frame-track: rgba(74, 222, 128, 0.12);
+                --frame-track-border: rgba(134, 239, 172, 0.32);
+                --frame-bar: linear-gradient(90deg, #22c55e 0%, #4ade80 100%);
               }}
               body {{
                 margin: 0;
-                background: #05080d;
-                color: #f8fbff;
+                background: var(--frame-bg);
+                color: var(--frame-text);
                 font-family: "Source Sans 3", "Segoe UI", sans-serif;
               }}
               .rankings-shell {{
-                border: 1px solid rgba(74, 222, 128, 0.38);
+                border: 1px solid var(--frame-border);
                 border-radius: 18px;
                 overflow: auto;
-                background: #05080d;
+                background: var(--frame-bg);
               }}
               table {{
                 width: 100%;
                 border-collapse: collapse;
                 table-layout: fixed;
-                background: #05080d;
+                background: var(--frame-bg);
               }}
               thead th {{
                 position: sticky;
                 top: 0;
                 z-index: 2;
-                background: #05080d;
-                border: 1px solid rgba(74, 222, 128, 0.38);
+                background: var(--frame-bg);
+                border: 1px solid var(--frame-border);
                 padding: 0;
-                color: #f8fbff;
+                color: var(--frame-text);
                 font-size: 13px;
                 font-weight: 700;
               }}
               tbody td {{
-                border: 1px solid rgba(74, 222, 128, 0.18);
+                border: 1px solid var(--frame-border);
                 padding: 12px 14px;
-                color: #f8fbff;
-                background: #05080d;
+                color: var(--frame-text);
+                background: var(--frame-bg);
                 font-size: 15px;
                 vertical-align: middle;
                 word-wrap: break-word;
               }}
               tbody tr:hover td {{
-                background: #08110f;
+                background: var(--frame-row-hover);
               }}
               th:nth-child(1), td:nth-child(1) {{
                 width: 58px;
                 text-align: right;
-                color: #cfead8;
+                color: var(--frame-muted);
               }}
               th:nth-child(2), td:nth-child(2) {{ width: 140px; }}
               th:nth-child(3), td:nth-child(3) {{ width: 360px; }}
@@ -940,10 +948,10 @@ def _render_rankings_dataframe(df: pd.DataFrame) -> None:
                 cursor: pointer;
               }}
               .sort-btn:hover {{
-                background: rgba(74, 222, 128, 0.08);
+                background: color-mix(in srgb, var(--frame-text) 6%, transparent);
               }}
               .sort-indicator {{
-                color: #4ade80;
+                color: var(--frame-text);
                 opacity: 0.8;
               }}
               th.sorted-asc .sort-indicator::after {{
@@ -964,14 +972,14 @@ def _render_rankings_dataframe(df: pd.DataFrame) -> None:
               }}
               .sim-track {{
                 height: 12px;
-                background: rgba(74, 222, 128, 0.12);
-                border: 1px solid rgba(134, 239, 172, 0.32);
+                background: var(--frame-track);
+                border: 1px solid var(--frame-track-border);
                 border-radius: 999px;
                 overflow: hidden;
               }}
               .sim-bar {{
                 height: 100%;
-                background: linear-gradient(90deg, #22c55e 0%, #4ade80 100%);
+                background: var(--frame-bar);
               }}
               .sim-value {{
                 min-width: 44px;
@@ -1022,34 +1030,22 @@ def _render_rankings_dataframe(df: pd.DataFrame) -> None:
                   applySort(index, header.dataset.sortType || "text");
                 }});
               }});
+              function syncTheme() {{
+                const parentTheme = window.parent.document.documentElement.getAttribute("data-theme") || "light";
+                document.body.setAttribute("data-theme", parentTheme);
+              }}
+              syncTheme();
+              setInterval(syncTheme, 400);
               applySort(5, "number");
             </script>
             ''',
             height=560,
             scrolling=True,
-        )
-        return
-
-    st.dataframe(
-        df,
-        use_container_width=True,
-        column_config={
-            "job_id": st.column_config.TextColumn("Job ID", width="small"),
-            "job_title": st.column_config.TextColumn("Job Title", width="large"),
-            "candidate_id": st.column_config.TextColumn("Candidate", width="medium"),
-            "candidate_rank": st.column_config.NumberColumn("Rank", format="%d", width="small"),
-            "similarity_score": st.column_config.ProgressColumn(
-                "Similarity",
-                min_value=0.0,
-                max_value=1.0,
-                format="%.3f",
-            ),
-        },
     )
 
 
+# Render ranking table, metrics, and detailed feedback.
 def _show_results(df: pd.DataFrame, metrics: dict) -> None:
-    """Render summary metrics, rankings, and detailed match feedback."""
     display_df = df.copy()
     display_df = display_df.rename(columns={"rank": "candidate_rank", "similarity": "similarity_score"})
     if "candidate_id" in display_df.columns:
@@ -1164,6 +1160,7 @@ def _show_results(df: pd.DataFrame, metrics: dict) -> None:
                         st.write("No readable job description content found.")
 
 
+# Dataset-mode runner: loads prepared corpora and executes shared matcher pipeline.
 def _run_dataset_mode(
     top_k: int,
     output_explanations: bool,
@@ -1174,12 +1171,13 @@ def _run_dataset_mode(
     sample_seed: int,
     write_outputs: bool,
 ) -> tuple[pd.DataFrame, dict]:
-    """Run the shared matcher pipeline from the Streamlit app."""
     loading_shell = st.empty()
+    status_placeholder = st.empty()
 
     def update_progress(percent: int, label: str) -> None:
         with loading_shell.container():
             _render_loading_state(percent, label)
+        status_placeholder.info(f"{label} ({percent}%)")
 
     with st.status("Running matcher", expanded=True) as status:
         update_progress(4, "Booting matcher")
@@ -1232,18 +1230,14 @@ def _run_dataset_mode(
             expanded=False,
         )
     loading_shell.empty()
+    status_placeholder.empty()
     return df, metrics
 
 
+# Streamlit entrypoint and sidebar controls.
 def main() -> None:
-    """Streamlit entrypoint and sidebar controls."""
-    st.set_page_config(page_title="CN6000 Matcher", page_icon="📊", layout="wide")
-    if "dark_mode" not in st.session_state:
-        st.session_state["dark_mode"] = False
-
-    st.sidebar.header("Appearance")
-    st.session_state["dark_mode"] = st.sidebar.toggle("Dark mode", value=st.session_state["dark_mode"])
-    _inject_styles(st.session_state["dark_mode"])
+    _inject_styles(False)
+    _mount_theme_controller()
 
     dataset_max_candidates, dataset_max_jobs = _current_dataset_limits()
     current_dataset_source = dataset_source()
@@ -1293,7 +1287,6 @@ def main() -> None:
 
     if "batch_seed" not in st.session_state:
         st.session_state["batch_seed"] = random.SystemRandom().randint(1, 999999)
-
 
     st.sidebar.header("Run settings")
     top_k = st.sidebar.slider("Top-K jobs per candidate", min_value=1, max_value=50, value=3)
@@ -1387,8 +1380,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
