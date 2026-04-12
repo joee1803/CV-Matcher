@@ -21,6 +21,23 @@ class Config:
     filters_json: Path = Path("outputs/filters_applied.json")
 
 
+def _setting(name: str) -> str:
+    """Read configuration from env first, then Streamlit secrets when available."""
+    value = os.getenv(name, "").strip()
+    if value:
+        return value
+
+    try:
+        import streamlit as st
+
+        secret_value = st.secrets.get(name, "")
+        if secret_value is None:
+            return ""
+        return str(secret_value).strip()
+    except Exception:
+        return ""
+
+
 def _local_dataset_paths() -> tuple[Path, Path]:
     return Path("data/jobs"), Path("data/candidates")
 
@@ -32,14 +49,14 @@ def _demo_dataset_paths() -> tuple[Path, Path]:
 @lru_cache(maxsize=1)
 def _huggingface_dataset_root() -> Path | None:
     """Download and cache a deployment dataset snapshot from Hugging Face."""
-    repo_id = os.getenv("HF_DATASET_REPO_ID", "").strip()
+    repo_id = _setting("HF_DATASET_REPO_ID")
     if not repo_id:
         return None
 
-    revision = os.getenv("HF_DATASET_REVISION", "").strip() or None
-    repo_type = os.getenv("HF_DATASET_REPO_TYPE", "").strip() or "dataset"
-    token = os.getenv("HF_TOKEN", "").strip() or None
-    subdir = os.getenv("HF_DATASET_SUBDIR", "").strip().strip("/\\")
+    revision = _setting("HF_DATASET_REVISION") or None
+    repo_type = _setting("HF_DATASET_REPO_TYPE") or "dataset"
+    token = _setting("HF_TOKEN") or None
+    subdir = _setting("HF_DATASET_SUBDIR").strip("/\\")
     allow_patterns = [f"{subdir}/**"] if subdir else None
 
     snapshot_path = Path(
@@ -67,12 +84,12 @@ def _huggingface_dataset_paths() -> tuple[Path, Path] | None:
 
 
 def dataset_paths() -> tuple[Path, Path]:
-    jobs_override = os.getenv("JOBS_DATA_DIR")
-    candidates_override = os.getenv("CANDIDATES_DATA_DIR")
+    jobs_override = _setting("JOBS_DATA_DIR")
+    candidates_override = _setting("CANDIDATES_DATA_DIR")
     if jobs_override and candidates_override:
         return Path(jobs_override), Path(candidates_override)
 
-    data_root = os.getenv("DATA_ROOT")
+    data_root = _setting("DATA_ROOT")
     if data_root:
         root = Path(data_root)
         return root / "jobs", root / "candidates"
@@ -93,12 +110,12 @@ def dataset_paths() -> tuple[Path, Path]:
 
 
 def dataset_source() -> str:
-    jobs_override = os.getenv("JOBS_DATA_DIR")
-    candidates_override = os.getenv("CANDIDATES_DATA_DIR")
+    jobs_override = _setting("JOBS_DATA_DIR")
+    candidates_override = _setting("CANDIDATES_DATA_DIR")
     if jobs_override and candidates_override:
         return "local"
 
-    data_root = os.getenv("DATA_ROOT")
+    data_root = _setting("DATA_ROOT")
     if data_root:
         return "local"
 
