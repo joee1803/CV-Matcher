@@ -1429,6 +1429,8 @@ def main() -> None:
             dataset_paths_info = metrics.get("dataset_paths") or {}
             st.session_state["active_jobs_dir"] = dataset_paths_info.get("jobs_dir")
             st.session_state["active_candidates_dir"] = dataset_paths_info.get("candidates_dir")
+            if not has_previous_run:
+                st.rerun()
         except Exception as exc:
             st.error(f"Run failed: {exc}")
 
