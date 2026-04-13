@@ -196,10 +196,14 @@ def _inject_styles(_dark_mode: bool) -> None:
         }
         [data-testid="stInfo"], [data-testid="stSuccess"], [data-testid="stWarning"], [data-testid="stError"] { color: var(--ink) !important; }
         :root[data-theme="dark"] [data-testid="stInfo"] {
-          background: linear-gradient(90deg, rgba(34, 193, 184, 0.20), rgba(255, 138, 0, 0.16)) !important;
-          border: 1px solid rgba(255, 138, 0, 0.35) !important;
+          background:
+            radial-gradient(circle at 12% 18%, rgba(34, 193, 184, 0.34), transparent 34%),
+            linear-gradient(90deg, rgba(34, 193, 184, 0.28), rgba(255, 138, 0, 0.26)) !important;
+          border: 1px solid rgba(255, 138, 0, 0.52) !important;
           color: #f3f7fb !important;
-          box-shadow: 0 14px 30px rgba(2, 6, 23, 0.18);
+          box-shadow:
+            0 14px 30px rgba(2, 6, 23, 0.18),
+            0 0 0 1px rgba(34, 193, 184, 0.10) inset;
         }
         :root[data-theme="dark"] [data-testid="stInfo"] * {
           color: #f3f7fb !important;
