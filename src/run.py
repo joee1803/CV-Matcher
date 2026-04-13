@@ -10,7 +10,7 @@ from typing import Any, Callable
 
 import pandas as pd
 
-from .cache import EmbeddingCache
+from .cache import EmbeddingCache, ExplanationCache
 from .config import Config, dataset_source, mode_paths, prepare_huggingface_dataset_subset
 from .embed import Embedder
 from .explain import MatchExplainer
@@ -224,12 +224,13 @@ def run_matching(
     # 3) Embed jobs/candidates with optional persistent cache.
     t2 = perf_counter()
     embedder = Embedder(cfg.model_name, allow_download=allow_model_download)
-    cache = EmbeddingCache(cfg.cache_dir)
+    embedding_cache = EmbeddingCache(cfg.cache_dir)
     if clear_cache:
-        cache.clear()
+        embedding_cache.clear()
+        ExplanationCache(cfg.cache_dir).clear()
     if use_cache:
-        job_emb = cache.encode_batch([j.text for j in jobs], embedder)
-        cand_emb = cache.encode_batch([c["text"] for c in candidates], embedder)
+        job_emb = embedding_cache.encode_batch([j.text for j in jobs], embedder)
+        cand_emb = embedding_cache.encode_batch([c["text"] for c in candidates], embedder)
     else:
         job_emb = embedder.encode([j.text for j in jobs], batch_size=64)
         cand_emb = embedder.encode([c["text"] for c in candidates], batch_size=64)
@@ -293,8 +294,10 @@ def run_matching(
     # 5) Generate explanations (full or top-N jobs in fast mode).
     t4 = perf_counter()
     explained_rows = 0
+    explanation_cache_stats: dict[str, float | int] | None = None
     if output_explanations:
         explainer = MatchExplainer()
+        explanation_cache = ExplanationCache(cfg.cache_dir)
         cand_by_id = {c["candidate_id"]: c for c in candidates}
         job_by_id = {j.doc_id: j for j in jobs}
         job_scope: set[str] | None = None
@@ -316,9 +319,34 @@ def run_matching(
             if job is None:
                 continue
             cv_text = cand.get("cv_text") or cand.get("text", "")
+            cached_explanation = None
+            if use_cache:
+                cached_explanation = explanation_cache.get(
+                    job_id=str(row["job_id"]),
+                    candidate_id=str(row["candidate_id"]),
+                    similarity=float(row["similarity"]),
+                    cv_text=cv_text,
+                    job_text=job.text,
+                )
+            if cached_explanation is not None:
+                row["explanation"] = cached_explanation
+                explained_rows += 1
+                continue
             explained = explainer.explain_match(cv_text, job.text, row["similarity"])
-            row["explanation"] = explained.get("explanation", "")
+            explanation_text = explained.get("explanation", "")
+            row["explanation"] = explanation_text
+            if use_cache and explanation_text:
+                explanation_cache.set(
+                    job_id=str(row["job_id"]),
+                    candidate_id=str(row["candidate_id"]),
+                    similarity=float(row["similarity"]),
+                    cv_text=cv_text,
+                    job_text=job.text,
+                    explanation=explanation_text,
+                )
             explained_rows += 1
+        if use_cache:
+            explanation_cache_stats = explanation_cache.stats()
     t_explain = perf_counter() - t4
     if progress_callback:
         progress_callback(94, "Explanation pass complete")
@@ -348,7 +376,8 @@ def run_matching(
             "explain_seconds": round(t_explain, 3),
             "total_seconds": round(t_load + t_filter + t_embed + t_match + t_explain, 3),
         },
-        "cache_stats": cache.stats() if use_cache else None,
+        "cache_stats": embedding_cache.stats() if use_cache else None,
+        "explanation_cache_stats": explanation_cache_stats,
         "filter_stats": filter_stats if filter_obj.has_active_filters else None,
         "refresh_info": refresh_info,
         "explained_rows": explained_rows,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 
 import numpy as np
@@ -81,6 +82,73 @@ class EmbeddingCache:
 
     def stats(self) -> dict[str, float | int]:
         """Return runtime cache hit/miss statistics."""
+        total = self._hits + self._misses
+        hit_rate = (self._hits / total) if total else 0.0
+        return {
+            "hits": self._hits,
+            "misses": self._misses,
+            "requests": total,
+            "hit_rate": hit_rate,
+        }
+
+
+class ExplanationCache:
+    """Persistent JSON cache for match explanations."""
+
+    def __init__(self, cache_dir: Path):
+        self.cache_dir = cache_dir / "explanations"
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self._hits = 0
+        self._misses = 0
+
+    def _payload_hash(self, job_id: str, candidate_id: str, similarity: float, cv_text: str, job_text: str) -> str:
+        normalized = "\n".join(
+            [
+                job_id.strip().lower(),
+                candidate_id.strip().lower(),
+                f"{float(similarity):.6f}",
+                clean_text(cv_text),
+                clean_text(job_text),
+            ]
+        )
+        return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+    def _path_for_key(self, hash_key: str) -> Path:
+        return self.cache_dir / f"{hash_key}.json"
+
+    def get(self, job_id: str, candidate_id: str, similarity: float, cv_text: str, job_text: str) -> str | None:
+        hash_key = self._payload_hash(job_id, candidate_id, similarity, cv_text, job_text)
+        path = self._path_for_key(hash_key)
+        if not path.exists():
+            self._misses += 1
+            return None
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            self._misses += 1
+            return None
+        explanation = str(payload.get("explanation", "")).strip()
+        if not explanation:
+            self._misses += 1
+            return None
+        self._hits += 1
+        return explanation
+
+    def set(self, job_id: str, candidate_id: str, similarity: float, cv_text: str, job_text: str, explanation: str) -> None:
+        hash_key = self._payload_hash(job_id, candidate_id, similarity, cv_text, job_text)
+        path = self._path_for_key(hash_key)
+        path.write_text(json.dumps({"explanation": explanation}, ensure_ascii=True), encoding="utf-8")
+
+    def clear(self) -> int:
+        removed = 0
+        for path in self.cache_dir.glob("*.json"):
+            path.unlink(missing_ok=True)
+            removed += 1
+        self._hits = 0
+        self._misses = 0
+        return removed
+
+    def stats(self) -> dict[str, float | int]:
         total = self._hits + self._misses
         hit_rate = (self._hits / total) if total else 0.0
         return {
