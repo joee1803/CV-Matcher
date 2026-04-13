@@ -693,9 +693,9 @@ def _resolve_job_path(job_id: str) -> Path | None:
     else:
         jobs_dir, _ = dataset_paths()
     for ext in (".txt", ".docx", ".pdf"):
-        candidate = jobs_dir / f"{job_id}{ext}"
-        if candidate.exists():
-            return candidate
+        matches = sorted(jobs_dir.rglob(f"{job_id}{ext}"))
+        if matches:
+            return matches[0]
     return None
 
 
@@ -706,9 +706,9 @@ def _resolve_candidate_cv_path(candidate_id: str) -> Path | None:
     else:
         _, candidates_dir = dataset_paths()
     for ext in (".txt", ".docx", ".pdf"):
-        candidate = candidates_dir / f"{candidate_id}_cv{ext}"
-        if candidate.exists():
-            return candidate
+        matches = sorted(candidates_dir.rglob(f"{candidate_id}_cv{ext}"))
+        if matches:
+            return matches[0]
     return None
 
 
