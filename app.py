@@ -20,11 +20,13 @@ except StreamlitAPIException:
     pass
 
 MAX_UI_ROWS = 5000
-DEFAULT_SUBSET_JOBS = 60
+DEFAULT_SUBSET_JOBS = 24
 BASE_SUBSET_SEED = 42
 USE_SUBSET_MODE = True
 USE_EMBEDDING_CACHE = True
 GENERATE_EXPLANATIONS = True
+DEFAULT_EXPLANATION_TOP_N_JOBS = 8
+DEFAULT_CANDIDATE_RATIO_INDEX = 1
 
 
 # UI theme + accessibility styles for Streamlit components.
@@ -1309,7 +1311,7 @@ def main() -> None:
         ratio = st.sidebar.selectbox(
             "Candidates per job ratio",
             options=[5, 3, 2],
-            index=0,
+            index=DEFAULT_CANDIDATE_RATIO_INDEX,
             format_func=lambda x: f"{x}x",
         )
         subset_jobs = int(
@@ -1353,12 +1355,15 @@ def main() -> None:
         active_seed = BASE_SUBSET_SEED
         write_outputs = True
 
-    explanation_top_n_jobs = 0
+    explanation_top_n_jobs = DEFAULT_EXPLANATION_TOP_N_JOBS if output_explanations else 0
     run_requested = st.button("Run matcher", type="primary") or next_batch_clicked
     if run_requested:
         try:
-            active_seed = random.SystemRandom().randint(1, 999999)
-            st.session_state["batch_seed"] = active_seed
+            if next_batch_clicked:
+                active_seed = random.SystemRandom().randint(1, 999999)
+                st.session_state["batch_seed"] = active_seed
+            else:
+                active_seed = int(st.session_state["batch_seed"])
             df, metrics = _run_dataset_mode(
                 top_k=top_k,
                 output_explanations=output_explanations,
