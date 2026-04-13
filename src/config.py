@@ -212,15 +212,17 @@ def dataset_source() -> str:
     if data_root:
         return "local"
 
-    jobs_dir, _ = dataset_paths()
-    normalized = str(jobs_dir).replace("\\", "/").lower()
-    if "/demo_data/" in f"/{normalized}/":
-        return "demo"
-    if "/data/jobs" in normalized or normalized.endswith("data/jobs"):
+    primary_jobs, primary_candidates = _local_dataset_paths()
+    if primary_jobs.exists() and primary_candidates.exists():
         return "local"
+
+    demo_jobs, demo_candidates = _demo_dataset_paths()
+    if demo_jobs.exists() and demo_candidates.exists():
+        return "demo"
+
     if _huggingface_enabled():
         return "huggingface"
-    return "huggingface"
+    return "local"
 
 
 def mode_paths(mode: str) -> tuple[Path, Path]:
