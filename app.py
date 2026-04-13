@@ -10,7 +10,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 from streamlit.errors import StreamlitAPIException
 
-from src.config import dataset_paths, dataset_source
+from src.config import dataset_paths, dataset_source, huggingface_dataset_counts
 from src.io import count_dataset_items, read_document_cached
 from src.run import run_matching
 
@@ -647,6 +647,9 @@ def _candidate_label(candidate_id: str) -> str:
 
 @st.cache_data(show_spinner=False)
 def _current_dataset_limits() -> tuple[int, int]:
+    if dataset_source() == "huggingface":
+        cv_count, jobs_count = huggingface_dataset_counts()
+        return max(1, cv_count), max(1, jobs_count)
     jobs_dir, candidates_dir = dataset_paths()
     jobs_count = count_dataset_items(jobs_dir, r"^jd_\d+$")
     cv_count = count_dataset_items(candidates_dir, r"^(cand_\d+)_cv$", unique_group=1)
@@ -682,7 +685,11 @@ def _show_timings(metrics: dict) -> None:
 
 
 def _resolve_job_path(job_id: str) -> Path | None:
-    jobs_dir, _ = dataset_paths()
+    jobs_dir_value = st.session_state.get("active_jobs_dir")
+    if jobs_dir_value:
+        jobs_dir = Path(jobs_dir_value)
+    else:
+        jobs_dir, _ = dataset_paths()
     for ext in (".txt", ".docx", ".pdf"):
         candidate = jobs_dir / f"{job_id}{ext}"
         if candidate.exists():
@@ -691,7 +698,11 @@ def _resolve_job_path(job_id: str) -> Path | None:
 
 
 def _resolve_candidate_cv_path(candidate_id: str) -> Path | None:
-    _, candidates_dir = dataset_paths()
+    candidates_dir_value = st.session_state.get("active_candidates_dir")
+    if candidates_dir_value:
+        candidates_dir = Path(candidates_dir_value)
+    else:
+        _, candidates_dir = dataset_paths()
     for ext in (".txt", ".docx", ".pdf"):
         candidate = candidates_dir / f"{candidate_id}_cv{ext}"
         if candidate.exists():
@@ -1360,6 +1371,9 @@ def main() -> None:
             )
             st.session_state["last_df"] = df
             st.session_state["last_metrics"] = metrics
+            dataset_paths_info = metrics.get("dataset_paths") or {}
+            st.session_state["active_jobs_dir"] = dataset_paths_info.get("jobs_dir")
+            st.session_state["active_candidates_dir"] = dataset_paths_info.get("candidates_dir")
         except Exception as exc:
             st.error(f"Run failed: {exc}")
 

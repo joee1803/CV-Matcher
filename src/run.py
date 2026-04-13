@@ -11,7 +11,7 @@ from typing import Any, Callable
 import pandas as pd
 
 from .cache import EmbeddingCache
-from .config import Config, mode_paths
+from .config import Config, dataset_source, mode_paths, prepare_huggingface_dataset_subset
 from .embed import Embedder
 from .explain import MatchExplainer
 from .filter import CandidateFilter
@@ -176,7 +176,14 @@ def run_matching(
                 seed=refresh_seed,
                 force=refresh_force,
             )
-        jobs_dir, candidates_dir = mode_paths(mode)
+        if mode == "dataset" and dataset_source() == "huggingface":
+            jobs_dir, candidates_dir = prepare_huggingface_dataset_subset(
+                max_jobs=max_jobs,
+                max_candidates=max_candidates,
+                seed=sample_seed,
+            )
+        else:
+            jobs_dir, candidates_dir = mode_paths(mode)
         jobs = load_jobs(jobs_dir, max_items=max_jobs, seed=sample_seed)
         candidate_docs = load_candidate_docs(candidates_dir, max_items=max_candidates, seed=sample_seed)
         candidates = combine_candidate_docs(candidate_docs, doc_mode=candidate_doc_mode)
@@ -344,6 +351,10 @@ def run_matching(
             "max_jobs": max_jobs,
             "max_candidates": max_candidates,
             "sample_seed": sample_seed,
+        },
+        "dataset_paths": {
+            "jobs_dir": str(jobs_dir),
+            "candidates_dir": str(candidates_dir),
         },
     }
     return df, metrics
