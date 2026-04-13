@@ -434,6 +434,22 @@ def _inject_styles(_dark_mode: bool) -> None:
           box-shadow: 0 16px 36px rgba(15, 118, 110, 0.32);
           filter: saturate(1.08);
         }
+        :root[data-theme="dark"] [data-testid="stSidebar"] .stButton > button {
+          background: #f8fbff !important;
+          color: #08111b !important;
+          border: 1px solid rgba(255,255,255,0.65) !important;
+          box-shadow:
+            0 10px 26px rgba(2, 6, 23, 0.26),
+            0 0 0 1px rgba(255,255,255,0.10) inset !important;
+        }
+        :root[data-theme="dark"] [data-testid="stSidebar"] .stButton > button:hover {
+          background: #ffffff !important;
+          color: #020617 !important;
+          border-color: rgba(255,255,255,0.9) !important;
+          box-shadow:
+            0 16px 34px rgba(2, 6, 23, 0.34),
+            0 0 0 1px rgba(255,255,255,0.18) inset !important;
+        }
         .stDownloadButton > button {
           background:
             radial-gradient(circle at 18% 20%, rgba(255,255,255,0.16), transparent 28%),
