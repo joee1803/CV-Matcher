@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import random
 import re
+import shutil
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -162,19 +163,31 @@ def prepare_huggingface_dataset_subset(
         raise RuntimeError("No Hugging Face dataset files matched the requested subset.")
 
     cfg = Config()
-    cache_root = cfg.hf_dataset_cache_dir / f"seed_{seed}_jobs_{max_jobs or 'all'}_cands_{max_candidates or 'all'}"
-    cache_root.mkdir(parents=True, exist_ok=True)
+    mirror_root = cfg.hf_dataset_cache_dir / "mirror"
+    mirror_root.mkdir(parents=True, exist_ok=True)
 
-    snapshot_download(
-        repo_id=repo_id,
-        repo_type=repo["repo_type"],
-        revision=repo["revision"],
-        token=repo["token"],
-        local_dir=cache_root,
-        allow_patterns=allow_patterns,
-        max_workers=1,
-        resume_download=True,
-    )
+    missing_patterns = [path for path in allow_patterns if not (mirror_root / path).exists()]
+    if missing_patterns:
+        snapshot_download(
+            repo_id=repo_id,
+            repo_type=repo["repo_type"],
+            revision=repo["revision"],
+            token=repo["token"],
+            local_dir=mirror_root,
+            allow_patterns=missing_patterns,
+            max_workers=1,
+            resume_download=True,
+        )
+
+    cache_root = cfg.hf_dataset_cache_dir / f"seed_{seed}_jobs_{max_jobs or 'all'}_cands_{max_candidates or 'all'}"
+    for rel_path in allow_patterns:
+        source_path = mirror_root / rel_path
+        target_path = cache_root / rel_path
+        if target_path.exists():
+            continue
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source_path, target_path)
+
     return cache_root / "jobs", cache_root / "candidates"
 
 
