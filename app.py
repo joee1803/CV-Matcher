@@ -123,25 +123,28 @@ def _inject_styles(_dark_mode: bool) -> None:
         [data-testid="stHeader"] { background: var(--header) !important; border-bottom: 1px solid var(--border); backdrop-filter: blur(14px); }
         [data-testid="stToolbar"] { right: 0.5rem; }
         :root[data-theme="dark"] [data-testid="stToolbar"] button,
+        :root[data-theme="dark"] [data-testid="collapsedControl"],
         :root[data-theme="dark"] [data-testid="collapsedControl"] button,
         :root[data-theme="dark"] [data-testid="baseButton-headerNoPadding"] {
-          background: rgba(255,255,255,0.08) !important;
-          color: #f8fbff !important;
-          border: 1px solid rgba(255,255,255,0.18) !important;
+          background: rgba(248, 251, 255, 0.95) !important;
+          color: #08111b !important;
+          border: 1px solid rgba(255,255,255,0.78) !important;
           border-radius: 12px !important;
-          box-shadow: 0 10px 24px rgba(2, 6, 23, 0.28);
+          box-shadow: 0 10px 24px rgba(2, 6, 23, 0.30);
         }
         :root[data-theme="dark"] [data-testid="stToolbar"] button:hover,
+        :root[data-theme="dark"] [data-testid="collapsedControl"]:hover,
         :root[data-theme="dark"] [data-testid="collapsedControl"] button:hover,
         :root[data-theme="dark"] [data-testid="baseButton-headerNoPadding"]:hover {
-          background: rgba(255,255,255,0.14) !important;
-          border-color: rgba(255,255,255,0.28) !important;
+          background: #ffffff !important;
+          border-color: rgba(255,255,255,0.95) !important;
         }
         :root[data-theme="dark"] [data-testid="stToolbar"] button svg,
+        :root[data-theme="dark"] [data-testid="collapsedControl"] svg,
         :root[data-theme="dark"] [data-testid="collapsedControl"] button svg,
         :root[data-theme="dark"] [data-testid="baseButton-headerNoPadding"] svg {
-          fill: #f8fbff !important;
-          color: #f8fbff !important;
+          fill: #08111b !important;
+          color: #08111b !important;
         }
         [data-testid="stSidebar"] { background: var(--sidebar) !important; border-right: 1px solid var(--border); backdrop-filter: blur(18px); }
         [data-testid="stSidebar"] > div:first-child { background: var(--sidebar) !important; }
@@ -192,6 +195,16 @@ def _inject_styles(_dark_mode: bool) -> None:
           border-color: rgba(34, 193, 184, 0.35) !important;
         }
         [data-testid="stInfo"], [data-testid="stSuccess"], [data-testid="stWarning"], [data-testid="stError"] { color: var(--ink) !important; }
+        :root[data-theme="dark"] [data-testid="stInfo"] {
+          background: linear-gradient(90deg, rgba(34, 193, 184, 0.20), rgba(255, 138, 0, 0.16)) !important;
+          border: 1px solid rgba(255, 138, 0, 0.35) !important;
+          color: #f3f7fb !important;
+          box-shadow: 0 14px 30px rgba(2, 6, 23, 0.18);
+        }
+        :root[data-theme="dark"] [data-testid="stInfo"] * {
+          color: #f3f7fb !important;
+          fill: #ffb45c !important;
+        }
         [data-testid="stDataFrame"] {
           background: var(--table-cell) !important;
           border: 1px solid var(--table-border) !important;
@@ -433,22 +446,6 @@ def _inject_styles(_dark_mode: bool) -> None:
           transform: translateY(-2px) perspective(1200px) rotateX(2deg);
           box-shadow: 0 16px 36px rgba(15, 118, 110, 0.32);
           filter: saturate(1.08);
-        }
-        :root[data-theme="dark"] [data-testid="stSidebar"] .stButton > button {
-          background: #f8fbff !important;
-          color: #08111b !important;
-          border: 1px solid rgba(255,255,255,0.65) !important;
-          box-shadow:
-            0 10px 26px rgba(2, 6, 23, 0.26),
-            0 0 0 1px rgba(255,255,255,0.10) inset !important;
-        }
-        :root[data-theme="dark"] [data-testid="stSidebar"] .stButton > button:hover {
-          background: #ffffff !important;
-          color: #020617 !important;
-          border-color: rgba(255,255,255,0.9) !important;
-          box-shadow:
-            0 16px 34px rgba(2, 6, 23, 0.34),
-            0 0 0 1px rgba(255,255,255,0.18) inset !important;
         }
         .stDownloadButton > button {
           background:
