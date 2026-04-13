@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import random
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -77,6 +78,11 @@ def _huggingface_enabled() -> bool:
     return bool(_setting("HF_DATASET_REPO_ID"))
 
 
+def huggingface_dataset_enabled() -> bool:
+    """Public helper for checking whether a HF deployment dataset is configured."""
+    return _huggingface_enabled()
+
+
 def _huggingface_repo_kwargs() -> dict[str, str | None]:
     return {
         "repo_id": _setting("HF_DATASET_REPO_ID") or None,
@@ -113,10 +119,18 @@ def _huggingface_repo_files() -> tuple[str, ...]:
     return tuple(sorted(files))
 
 
+def _is_remote_job_file(path: str) -> bool:
+    return bool(re.match(r"^jobs(?:/[^/]+)*/jd_\d+\.txt$", path))
+
+
+def _is_remote_candidate_cv_file(path: str) -> bool:
+    return bool(re.match(r"^candidates(?:/[^/]+)*/cand_\d+_cv\.[^/]+$", path))
+
+
 def huggingface_dataset_counts() -> tuple[int, int]:
     files = _huggingface_repo_files()
-    jobs = sum(1 for path in files if path.startswith("jobs/jd_"))
-    candidates = sum(1 for path in files if path.startswith("candidates/cand_") and "_cv." in path)
+    jobs = sum(1 for path in files if _is_remote_job_file(path))
+    candidates = sum(1 for path in files if _is_remote_candidate_cv_file(path))
     return candidates, jobs
 
 
@@ -139,8 +153,8 @@ def prepare_huggingface_dataset_subset(
         raise RuntimeError("HF_DATASET_REPO_ID is not configured.")
 
     files = _huggingface_repo_files()
-    job_files = [path for path in files if path.startswith("jobs/jd_")]
-    candidate_files = [path for path in files if path.startswith("candidates/cand_") and "_cv." in path]
+    job_files = [path for path in files if _is_remote_job_file(path)]
+    candidate_files = [path for path in files if _is_remote_candidate_cv_file(path)]
     selected_jobs = _sample_remote_files(job_files, max_jobs, seed)
     selected_candidates = _sample_remote_files(candidate_files, max_candidates, seed)
     allow_patterns = selected_jobs + selected_candidates
@@ -216,12 +230,12 @@ def dataset_source() -> str:
     if primary_jobs.exists() and primary_candidates.exists():
         return "local"
 
+    if _huggingface_enabled():
+        return "huggingface"
+
     demo_jobs, demo_candidates = _demo_dataset_paths()
     if demo_jobs.exists() and demo_candidates.exists():
         return "demo"
-
-    if _huggingface_enabled():
-        return "huggingface"
     return "local"
 
 

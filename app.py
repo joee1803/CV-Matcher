@@ -10,7 +10,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 from streamlit.errors import StreamlitAPIException
 
-from src.config import dataset_paths, dataset_source, huggingface_dataset_counts
+from src.config import dataset_paths, dataset_source, huggingface_dataset_counts, huggingface_dataset_enabled
 from src.io import count_dataset_items, read_document_cached
 from src.run import run_matching
 
@@ -647,7 +647,7 @@ def _candidate_label(candidate_id: str) -> str:
 
 @st.cache_data(show_spinner=False)
 def _current_dataset_limits() -> tuple[int, int]:
-    if dataset_source() == "huggingface":
+    if huggingface_dataset_enabled():
         cv_count, jobs_count = huggingface_dataset_counts()
         return max(1, cv_count), max(1, jobs_count)
     jobs_dir, candidates_dir = dataset_paths()
