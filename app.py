@@ -1320,6 +1320,8 @@ def main() -> None:
     elif current_dataset_source == "demo":
         st.caption("Fallback demo dataset is active because no larger dataset source was found.")
 
+    st.info("Use the sidebar to customize batch settings, refresh mode, and ranking options before you run the matcher.")
+
     if "job_batch_seed" not in st.session_state:
         st.session_state["job_batch_seed"] = random.SystemRandom().randint(1, 999999)
     if "candidate_batch_seed" not in st.session_state:
@@ -1331,65 +1333,63 @@ def main() -> None:
     output_explanations = GENERATE_EXPLANATIONS
     subset_mode = USE_SUBSET_MODE
     next_batch_clicked = False
-    run_requested = False
-    with st.sidebar.form("run_settings_form"):
-        top_k = st.slider("Top-K jobs per candidate", min_value=1, max_value=50, value=3)
-        if subset_mode:
-            if has_previous_run:
-                refresh_mode = st.selectbox(
-                    "Batch refresh mode",
-                    options=[
-                        "Randomize both",
-                        "Keep jobs, change candidates",
-                        "Keep candidates, change jobs",
-                    ],
-                )
-            else:
-                refresh_mode = "Randomize both"
-                st.caption("Batch refresh mode unlocks after the first run.")
-
-            ratio = st.selectbox(
-                "Candidates per job ratio",
-                options=[5, 3, 2],
-                index=0,
-                format_func=lambda x: f"{x}x",
+    top_k = st.sidebar.slider("Top-K jobs per candidate", min_value=1, max_value=50, value=3)
+    if subset_mode:
+        if has_previous_run:
+            refresh_mode = st.sidebar.selectbox(
+                "Batch refresh mode",
+                options=[
+                    "Randomize both",
+                    "Keep jobs, change candidates",
+                    "Keep candidates, change jobs",
+                ],
             )
-            subset_jobs = int(
-                st.number_input(
-                    "Jobs per run",
-                    min_value=1,
-                    max_value=dataset_max_jobs,
-                    value=min(DEFAULT_SUBSET_JOBS, dataset_max_jobs),
-                    step=1,
-                )
-            )
-            min_candidates = min(dataset_max_candidates, subset_jobs * ratio)
-            max_candidates_allowed = dataset_max_candidates
-            default_candidates = min(dataset_max_candidates, subset_jobs * ratio)
-            if subset_jobs * ratio > dataset_max_candidates:
-                st.caption(
-                    f"Available candidates ({dataset_max_candidates}) are below {ratio}x for {subset_jobs} jobs."
-                )
-            subset_candidates = int(
-                st.number_input(
-                    "Candidates per run",
-                    min_value=max(1, min_candidates),
-                    max_value=max_candidates_allowed,
-                    value=max(1, default_candidates),
-                    step=1,
-                )
-            )
-            max_jobs = subset_jobs
-            max_candidates = subset_candidates
-            write_outputs = False
         else:
             refresh_mode = "Randomize both"
-            max_jobs = None
-            max_candidates = None
-            write_outputs = True
+            st.sidebar.caption("Batch refresh mode unlocks after the first run.")
 
-        run_requested = st.form_submit_button("Run matcher", type="primary")
-        next_batch_clicked = st.form_submit_button("Next batch", disabled=not has_previous_run)
+        ratio = st.sidebar.selectbox(
+            "Candidates per job ratio",
+            options=[5, 3, 2],
+            index=0,
+            format_func=lambda x: f"{x}x",
+        )
+        subset_jobs = int(
+            st.sidebar.number_input(
+                "Jobs per run",
+                min_value=1,
+                max_value=dataset_max_jobs,
+                value=min(DEFAULT_SUBSET_JOBS, dataset_max_jobs),
+                step=1,
+            )
+        )
+        min_candidates = min(dataset_max_candidates, subset_jobs * ratio)
+        max_candidates_allowed = dataset_max_candidates
+        default_candidates = min(dataset_max_candidates, subset_jobs * ratio)
+        if subset_jobs * ratio > dataset_max_candidates:
+            st.sidebar.caption(
+                f"Available candidates ({dataset_max_candidates}) are below {ratio}x for {subset_jobs} jobs."
+            )
+        subset_candidates = int(
+            st.sidebar.number_input(
+                "Candidates per run",
+                min_value=max(1, min_candidates),
+                max_value=max_candidates_allowed,
+                value=max(1, default_candidates),
+                step=1,
+            )
+        )
+        max_jobs = subset_jobs
+        max_candidates = subset_candidates
+        write_outputs = False
+    else:
+        refresh_mode = "Randomize both"
+        max_jobs = None
+        max_candidates = None
+        write_outputs = True
+
+    next_batch_clicked = st.sidebar.button("Next batch", disabled=not has_previous_run)
+    run_requested = st.button("Run matcher", type="primary", use_container_width=True)
 
     if subset_mode:
         if next_batch_clicked:
