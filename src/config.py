@@ -145,7 +145,8 @@ def _sample_remote_files(paths: list[str], max_items: int | None, seed: int) -> 
 def prepare_huggingface_dataset_subset(
     max_jobs: int | None,
     max_candidates: int | None,
-    seed: int,
+    job_seed: int,
+    candidate_seed: int,
 ) -> tuple[Path, Path]:
     """Download only the requested HF subset instead of the whole dataset."""
     repo = _huggingface_repo_kwargs()
@@ -156,8 +157,8 @@ def prepare_huggingface_dataset_subset(
     files = _huggingface_repo_files()
     job_files = [path for path in files if _is_remote_job_file(path)]
     candidate_files = [path for path in files if _is_remote_candidate_cv_file(path)]
-    selected_jobs = _sample_remote_files(job_files, max_jobs, seed)
-    selected_candidates = _sample_remote_files(candidate_files, max_candidates, seed)
+    selected_jobs = _sample_remote_files(job_files, max_jobs, job_seed)
+    selected_candidates = _sample_remote_files(candidate_files, max_candidates, candidate_seed)
     allow_patterns = selected_jobs + selected_candidates
     if not allow_patterns:
         raise RuntimeError("No Hugging Face dataset files matched the requested subset.")
@@ -179,7 +180,10 @@ def prepare_huggingface_dataset_subset(
             resume_download=True,
         )
 
-    cache_root = cfg.hf_dataset_cache_dir / f"seed_{seed}_jobs_{max_jobs or 'all'}_cands_{max_candidates or 'all'}"
+    cache_root = (
+        cfg.hf_dataset_cache_dir
+        / f"jobs_{job_seed}_{max_jobs or 'all'}__cands_{candidate_seed}_{max_candidates or 'all'}"
+    )
     for rel_path in allow_patterns:
         source_path = mirror_root / rel_path
         target_path = cache_root / rel_path

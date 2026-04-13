@@ -154,6 +154,8 @@ def run_matching(
     max_jobs: int | None = None,
     max_candidates: int | None = None,
     sample_seed: int = 42,
+    job_sample_seed: int | None = None,
+    candidate_sample_seed: int | None = None,
     progress_callback: Callable[[int, str], None] | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     if mode != "dataset":
@@ -168,6 +170,8 @@ def run_matching(
     # 1) Load and optionally refresh datasets.
     t0 = perf_counter()
     refresh_info: dict[str, str | int] | None = None
+    job_seed = sample_seed if job_sample_seed is None else job_sample_seed
+    candidate_seed = sample_seed if candidate_sample_seed is None else candidate_sample_seed
     if jobs_override is None or candidates_override is None:
         if mode == "dataset" and refresh_online_data:
             refresh_info = refresh_dataset_from_online(
@@ -180,12 +184,13 @@ def run_matching(
             jobs_dir, candidates_dir = prepare_huggingface_dataset_subset(
                 max_jobs=max_jobs,
                 max_candidates=max_candidates,
-                seed=sample_seed,
+                job_seed=job_seed,
+                candidate_seed=candidate_seed,
             )
         else:
             jobs_dir, candidates_dir = mode_paths(mode)
-        jobs = load_jobs(jobs_dir, max_items=max_jobs, seed=sample_seed)
-        candidate_docs = load_candidate_docs(candidates_dir, max_items=max_candidates, seed=sample_seed)
+        jobs = load_jobs(jobs_dir, max_items=max_jobs, seed=job_seed)
+        candidate_docs = load_candidate_docs(candidates_dir, max_items=max_candidates, seed=candidate_seed)
         candidates = combine_candidate_docs(candidate_docs, doc_mode=candidate_doc_mode)
     else:
         jobs = jobs_override
@@ -351,6 +356,8 @@ def run_matching(
             "max_jobs": max_jobs,
             "max_candidates": max_candidates,
             "sample_seed": sample_seed,
+            "job_seed": job_seed,
+            "candidate_seed": candidate_seed,
         },
         "dataset_paths": {
             "jobs_dir": str(jobs_dir),

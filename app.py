@@ -1179,7 +1179,8 @@ def _run_dataset_mode(
     use_cache: bool,
     max_jobs: int | None,
     max_candidates: int | None,
-    sample_seed: int,
+    job_sample_seed: int,
+    candidate_sample_seed: int,
     write_outputs: bool,
 ) -> tuple[pd.DataFrame, dict]:
     loading_shell = st.empty()
@@ -1221,7 +1222,9 @@ def _run_dataset_mode(
             use_faiss=False,
             max_jobs=max_jobs,
             max_candidates=max_candidates,
-            sample_seed=sample_seed,
+            sample_seed=job_sample_seed,
+            job_sample_seed=job_sample_seed,
+            candidate_sample_seed=candidate_sample_seed,
             progress_callback=update_progress,
         )
         timings = metrics.get("timings", {})
@@ -1296,8 +1299,10 @@ def main() -> None:
     elif current_dataset_source == "demo":
         st.caption("Fallback demo dataset is active because no larger dataset source was found.")
 
-    if "batch_seed" not in st.session_state:
-        st.session_state["batch_seed"] = random.SystemRandom().randint(1, 999999)
+    if "job_batch_seed" not in st.session_state:
+        st.session_state["job_batch_seed"] = random.SystemRandom().randint(1, 999999)
+    if "candidate_batch_seed" not in st.session_state:
+        st.session_state["candidate_batch_seed"] = random.SystemRandom().randint(1, 999999)
 
     st.sidebar.header("Run settings")
     top_k = st.sidebar.slider("Top-K jobs per candidate", min_value=1, max_value=50, value=3)
@@ -1306,6 +1311,14 @@ def main() -> None:
     subset_mode = USE_SUBSET_MODE
     next_batch_clicked = False
     if subset_mode:
+        refresh_mode = st.sidebar.selectbox(
+            "Batch refresh mode",
+            options=[
+                "Randomize both",
+                "Keep jobs, change candidates",
+                "Keep candidates, change jobs",
+            ],
+        )
         ratio = st.sidebar.selectbox(
             "Candidates per job ratio",
             options=[5, 3, 2],
@@ -1339,9 +1352,18 @@ def main() -> None:
         )
         if st.sidebar.button("Next batch"):
             next_batch_clicked = True
+            if refresh_mode == "Randomize both":
+                st.session_state["job_batch_seed"] = random.SystemRandom().randint(1, 999999)
+                st.session_state["candidate_batch_seed"] = random.SystemRandom().randint(1, 999999)
+            elif refresh_mode == "Keep jobs, change candidates":
+                st.session_state["candidate_batch_seed"] = random.SystemRandom().randint(1, 999999)
+            else:
+                st.session_state["job_batch_seed"] = random.SystemRandom().randint(1, 999999)
             st.session_state["batch_notice"] = "Next batch loaded. Running matcher for this batch..."
-        active_seed = int(st.session_state["batch_seed"])
+        active_job_seed = int(st.session_state["job_batch_seed"])
+        active_candidate_seed = int(st.session_state["candidate_batch_seed"])
         st.sidebar.caption(f"Candidates/jobs ratio this run: {subset_candidates/max(subset_jobs,1):.2f}x")
+        st.sidebar.caption(f"Job seed: {active_job_seed} | Candidate seed: {active_candidate_seed}")
         if "batch_notice" in st.session_state:
             st.sidebar.success(st.session_state.pop("batch_notice"))
         max_jobs = subset_jobs
@@ -1350,15 +1372,14 @@ def main() -> None:
     else:
         max_jobs = None
         max_candidates = None
-        active_seed = BASE_SUBSET_SEED
+        active_job_seed = BASE_SUBSET_SEED
+        active_candidate_seed = BASE_SUBSET_SEED
         write_outputs = True
 
     explanation_top_n_jobs = 0
     run_requested = st.button("Run matcher", type="primary") or next_batch_clicked
     if run_requested:
         try:
-            active_seed = random.SystemRandom().randint(1, 999999)
-            st.session_state["batch_seed"] = active_seed
             df, metrics = _run_dataset_mode(
                 top_k=top_k,
                 output_explanations=output_explanations,
@@ -1366,7 +1387,8 @@ def main() -> None:
                 use_cache=use_cache,
                 max_jobs=max_jobs,
                 max_candidates=max_candidates,
-                sample_seed=active_seed,
+                job_sample_seed=active_job_seed,
+                candidate_sample_seed=active_candidate_seed,
                 write_outputs=write_outputs,
             )
             st.session_state["last_df"] = df
