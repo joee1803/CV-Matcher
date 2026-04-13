@@ -76,7 +76,7 @@ def _cached_supported_files(folder_str: str) -> tuple[str, ...]:
     return tuple(
         sorted(
             str(p)
-            for p in folder.iterdir()
+            for p in folder.rglob("*")
             if p.is_file() and p.suffix.lower() in SUPPORTED_EXTENSIONS
         )
     )
@@ -115,7 +115,7 @@ def count_dataset_items(folder: Path, pattern: str, unique_group: int | None = N
     rx = re.compile(pattern, flags=re.IGNORECASE)
     if unique_group is None:
         count = 0
-        for p in folder.iterdir():
+        for p in folder.rglob("*"):
             if not p.is_file() or p.suffix.lower() not in SUPPORTED_EXTENSIONS:
                 continue
             if rx.match(p.stem):
@@ -123,7 +123,7 @@ def count_dataset_items(folder: Path, pattern: str, unique_group: int | None = N
         return count
 
     unique_values: set[str] = set()
-    for p in folder.iterdir():
+    for p in folder.rglob("*"):
         if not p.is_file() or p.suffix.lower() not in SUPPORTED_EXTENSIONS:
             continue
         m = rx.match(p.stem)
