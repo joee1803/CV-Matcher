@@ -122,6 +122,27 @@ def _inject_styles(_dark_mode: bool) -> None:
         }
         [data-testid="stHeader"] { background: var(--header) !important; border-bottom: 1px solid var(--border); backdrop-filter: blur(14px); }
         [data-testid="stToolbar"] { right: 0.5rem; }
+        :root[data-theme="dark"] [data-testid="stToolbar"] button,
+        :root[data-theme="dark"] [data-testid="collapsedControl"] button,
+        :root[data-theme="dark"] [data-testid="baseButton-headerNoPadding"] {
+          background: rgba(255,255,255,0.08) !important;
+          color: #f8fbff !important;
+          border: 1px solid rgba(255,255,255,0.18) !important;
+          border-radius: 12px !important;
+          box-shadow: 0 10px 24px rgba(2, 6, 23, 0.28);
+        }
+        :root[data-theme="dark"] [data-testid="stToolbar"] button:hover,
+        :root[data-theme="dark"] [data-testid="collapsedControl"] button:hover,
+        :root[data-theme="dark"] [data-testid="baseButton-headerNoPadding"]:hover {
+          background: rgba(255,255,255,0.14) !important;
+          border-color: rgba(255,255,255,0.28) !important;
+        }
+        :root[data-theme="dark"] [data-testid="stToolbar"] button svg,
+        :root[data-theme="dark"] [data-testid="collapsedControl"] button svg,
+        :root[data-theme="dark"] [data-testid="baseButton-headerNoPadding"] svg {
+          fill: #f8fbff !important;
+          color: #f8fbff !important;
+        }
         [data-testid="stSidebar"] { background: var(--sidebar) !important; border-right: 1px solid var(--border); backdrop-filter: blur(18px); }
         [data-testid="stSidebar"] > div:first-child { background: var(--sidebar) !important; }
         .stApp, .stMarkdown, .stText, .stCaption, .st-emotion-cache-10trblm, .st-emotion-cache-q8sbsg { color: var(--ink) !important; }
