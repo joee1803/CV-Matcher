@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from huggingface_hub import HfApi
+from dotenv import load_dotenv
 
 
 def parse_args() -> argparse.Namespace:
@@ -36,6 +37,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    load_dotenv()
     args = parse_args()
     token = os.getenv("HF_TOKEN")
     if not token:

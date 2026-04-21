@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from huggingface_hub import HfApi
+from dotenv import load_dotenv
 
 
 def parse_args() -> argparse.Namespace:
@@ -67,6 +68,7 @@ def remove_remote(repo_id: str) -> int:
 
 
 def main() -> None:
+    load_dotenv()
     args = parse_args()
     if args.local_only and args.remote_only:
         raise SystemExit("Use at most one of --local-only or --remote-only.")
