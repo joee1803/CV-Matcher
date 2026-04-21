@@ -504,6 +504,59 @@ def _inject_styles(_dark_mode: bool) -> None:
           padding: 10px 12px;
           margin: 8px 0 10px 0;
         }
+        .guide-card {
+          background: var(--card);
+          border: 1px solid var(--border);
+          border-radius: 18px;
+          padding: 16px 18px;
+          margin: 10px 0 14px 0;
+          backdrop-filter: blur(16px);
+          box-shadow: 0 18px 42px rgba(15, 23, 42, 0.10);
+        }
+        .guide-title {
+          margin: 0 0 6px 0;
+          font-family: "Space Grotesk", "Segoe UI", sans-serif;
+          font-size: 22px;
+          color: var(--ink);
+        }
+        .guide-copy {
+          margin: 0 0 12px 0;
+          color: var(--muted);
+          line-height: 1.5;
+        }
+        .guide-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 12px;
+        }
+        .guide-step {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          padding: 12px 14px;
+        }
+        .guide-step-no {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          border-radius: 999px;
+          background: linear-gradient(90deg, var(--accent), var(--accent-2));
+          color: #f8fbff;
+          font-weight: 700;
+          margin-bottom: 8px;
+        }
+        .guide-step-title {
+          font-weight: 700;
+          color: var(--ink);
+          margin-bottom: 4px;
+        }
+        .guide-step-copy {
+          color: var(--muted);
+          line-height: 1.45;
+          font-size: 15px;
+        }
         .result-shell {
           background: var(--card);
           border: 1px solid var(--border);
@@ -1338,6 +1391,39 @@ def main() -> None:
         st.caption("Fallback demo dataset is active because no larger dataset source was found.")
 
     st.info("Use the sidebar to customize batch settings, refresh mode, and ranking options before you run the matcher.")
+    with st.expander("Quick Start & User Guide", expanded=True):
+        st.markdown(
+            """
+            <div class='guide-card'>
+              <h3 class='guide-title'>How To Use The Matcher</h3>
+              <p class='guide-copy'>This app compares candidate CVs with job descriptions and ranks the strongest matches. If you are opening it for the first time, follow these steps:</p>
+              <div class='guide-grid'>
+                <div class='guide-step'>
+                  <div class='guide-step-no'>1</div>
+                  <div class='guide-step-title'>Choose settings in the sidebar</div>
+                  <div class='guide-step-copy'>Use the left sidebar to set Top-K, jobs per run, candidates per run, and batch refresh mode once it unlocks.</div>
+                </div>
+                <div class='guide-step'>
+                  <div class='guide-step-no'>2</div>
+                  <div class='guide-step-title'>Click Run matcher</div>
+                  <div class='guide-step-copy'>Press the main Run matcher button to generate ranked results for the current batch.</div>
+                </div>
+                <div class='guide-step'>
+                  <div class='guide-step-no'>3</div>
+                  <div class='guide-step-title'>Read the three result views</div>
+                  <div class='guide-step-copy'>Overview shows totals and timing, Rankings shows the ranked table, and Feedback explains why matches were made.</div>
+                </div>
+                <div class='guide-step'>
+                  <div class='guide-step-no'>4</div>
+                  <div class='guide-step-title'>Use Next batch for another sample</div>
+                  <div class='guide-step-copy'>After the first run, Batch refresh mode lets you change jobs, candidates, or both when you load the next batch.</div>
+                </div>
+              </div>
+              <p class='guide-copy' style='margin-top:12px;'>If you ever see a sleep page before the app loads, simply wake the app and wait a moment. Streamlit Community Cloud puts inactive apps to sleep automatically.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     if "job_batch_seed" not in st.session_state:
         st.session_state["job_batch_seed"] = random.SystemRandom().randint(1, 999999)
