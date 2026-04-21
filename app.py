@@ -1401,7 +1401,7 @@ def main() -> None:
                 <div class='guide-step'>
                   <div class='guide-step-no'>1</div>
                   <div class='guide-step-title'>Choose settings in the sidebar</div>
-                  <div class='guide-step-copy'>Use the left sidebar to set Top-K, jobs per run, candidates per run, and batch refresh mode once it unlocks.</div>
+                  <div class='guide-step-copy'>Use the left sidebar to set Top-K candidates, jobs per run, the candidate ratio, and batch refresh mode once it unlocks.</div>
                 </div>
                 <div class='guide-step'>
                   <div class='guide-step-no'>2</div>
@@ -1436,7 +1436,7 @@ def main() -> None:
     output_explanations = GENERATE_EXPLANATIONS
     subset_mode = USE_SUBSET_MODE
     next_batch_clicked = False
-    top_k = st.sidebar.slider("Top-K jobs per candidate", min_value=1, max_value=50, value=3)
+    top_k = st.sidebar.slider("Top-K candidates", min_value=1, max_value=50, value=3)
     if subset_mode:
         if has_previous_run:
             refresh_mode = st.sidebar.selectbox(
@@ -1475,11 +1475,13 @@ def main() -> None:
             )
         subset_candidates = int(
             st.sidebar.number_input(
-                "Candidates per run",
+                "Candidates per run (auto)",
                 min_value=max(1, min_candidates),
                 max_value=max_candidates_allowed,
                 value=max(1, default_candidates),
                 step=1,
+                disabled=True,
+                help="This value is automatically derived from Jobs per run and the selected candidate-to-job ratio.",
             )
         )
         max_jobs = subset_jobs
